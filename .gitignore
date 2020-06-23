@@ -2,3 +2,5 @@
 *.rds
 *.zip
 *.csv
+*.xlsm
+*unformatted.py

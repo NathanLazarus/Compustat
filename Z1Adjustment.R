@@ -5,7 +5,7 @@ library(snow)
 library(doSNOW)
 
 dtcut = readRDS('Compustat/dtcut.rds')
-Z1 = fread('Z1_assets.csv')
+Z1 = fread('Compustat/Z1_assets.csv')
 
 Z1[,calendaryear:=as.integer(substring(Year,1,4))][,Year:=NULL]
 setnames(Z1,gsub("[^[:alnum:]]","",names(Z1)))
@@ -31,15 +31,16 @@ na0 = function(x) ifelse(!is.na(x),x,0)
 dtcut[,financial:=+(SIC>=6000&SIC<6500)]
 PPEcategories = c('MachineryandEquipment', 'NaturalResources', 'Other', 'Buildings',
                   'ConstructioninProgress', 'LandandImprovements', 'Leases')
-throwaway = foreach(i = 1:length(PPEcategories))%do%{
+depreciationconstants = foreach(i = 1:length(PPEcategories),.combine = rbind)%do%{
   depreciation = dtcut[!is.na(eval(parse(text=paste0('PropertyPlantandEquipment',PPEcategories[i],'Net'))))&
                          !is.na(eval(parse(text=paste0('PropertyPlantandEquipment',PPEcategories[i],'atCost')))),
                        sum(eval(parse(text=paste0('PropertyPlantandEquipment',PPEcategories[i],'Net'))))/
                          sum(eval(parse(text=paste0('PropertyPlantandEquipment',PPEcategories[i],'atCost'))))]
+  #this is the important side effect
   dtcut[,PPEcategories[i]:=ifelse(!is.na(eval(parse(text=paste0('PropertyPlantandEquipment',PPEcategories[i],'Net')))),
                                   eval(parse(text=paste0('PropertyPlantandEquipment',PPEcategories[i],'Net'))),
                                   depreciation*eval(parse(text=paste0('PropertyPlantandEquipment',PPEcategories[i],'atCost'))))]
-  NULL
+  data.table(PPEcategory = PPEcategories[i],depreciationconstant = depreciation)
 }
 dtcut[,equipment:=sum(MachineryandEquipment,
                       NaturalResources,

@@ -97,16 +97,16 @@ setnames(i_table,needsvarname$myvarname,needsvarname$varnice)
 newcolnamesandorder
 }
 Sys.time()
-updating_old_files = TRUE
+updating_old_files = FALSE
 all_years = seq(min(final$`Calendar Year`),max(final$`Calendar Year`))
 pb = txtProgressBar(max = length(all_years), style = 3)
 progress = function(n) setTxtProgressBar(pb, n)
 opts = list(progress = progress)
 clusters=makeCluster(7)
 registerDoSNOW(clusters)
-throwaway = foreach(yr=2013:2017,.options.snow = opts,.packages = 'openxlsx')%do%{
+throwaway = foreach(yr=all_years,.options.snow = opts,.packages = 'openxlsx')%dopar%{
   if(updating_old_files==TRUE) {
-    filename = paste0('Compustat/Compustat Annual Files Updated/What I Sent Mordecai/Final Compustat Edited Files/Final File ',yr,'.xlsx')
+    filename = paste0('Compustat/Compustat Annual Files Updated/What I Sent Mordecai 2/Final Compustat Edited Files/Final File ',yr,'.xlsx')
     tryCatch({wb=loadWorkbook(filename)},
            error = function(e) {wb <<- createWorkbook()})
     if("Update2019" %in% names(wb)) removeWorksheet(wb, "Update2019")
@@ -129,7 +129,7 @@ throwaway = foreach(yr=2013:2017,.options.snow = opts,.packages = 'openxlsx')%do
   
   addWorksheet(wb, raw_sheet_name)
   addWorksheet(wb, trimmed_sheet_name)
-  addWorksheet(wb, final_sheet_name) 
+  addWorksheet(wb, final_sheet_name)
   
   sty = createStyle(wrapText = T,halign = "center",border="bottom",borderColour = "#000000",borderStyle='thick',textDecoration = "bold")
   
