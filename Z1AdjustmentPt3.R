@@ -1,4 +1,4 @@
-optimalweights = fread('Compustat/OptimalZ1Weights.csv')
+optimalweights = fread('OptimalZ1Weights.csv')
 
 pctsbyfin = merge(pctsbyfin,optimalweights,by='calendaryear')
 pctsbyfin[,optimal_adjustment:=InventoriesTotal*reweightedInventoriesadjustment+
@@ -43,5 +43,5 @@ dtcut[,monopolywealth:=MktVal-AssetsTotal+IntangibleAssetsTotal+LiabilitiesTotal
     ][,mwv:=monopolywealth/MktVal]
 
 
-saveRDS(dtcut,'Compustat/dtcut_for_spreadsheets.rds')
+saveRDS(dtcut,'dtcut_for_spreadsheets.rds')
 

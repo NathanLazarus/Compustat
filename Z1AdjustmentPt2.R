@@ -1,11 +1,11 @@
-# run real_estate_equipment_rates.py
+# run real_estate_equipment_weights.py
 
 library(foreach)
 library(iterators)
 library(snow)
 library(doSNOW)
 
-optimal_real_estate_weights = fread('Compustat/Optimal_real_estate_equipment_Weights.csv')
+optimal_real_estate_weights = fread('Optimal_real_estate_equipment_Weights.csv')
 optimal_real_estate_weights[,twodigitsic:=as.character(twodigitsic)]
 setkey(optimal_real_estate_weights,calendaryear,twodigitsic)
 setkey(dtcut,calendaryear,twodigitsic)
@@ -196,5 +196,6 @@ pctsbyfin[,dontrevalue:=ReceivablesTotal+DeferredCharges+PrepaidExpenses+
 pctsbyfin[,adjustment_if_categories_matched_up:=InventoriesTotal*Inventoriesadjustment+realestate*RealEstateadjustment+equipment*Equipmentadjustment+IntellectualProperty*IPadjustment+(1-IntellectualProperty-equipment-realestate-InventoriesTotal)]
 
 fwrite(pctsbyfin[financial==0,.(InventoriesTotal,realestate,equipment,IntellectualProperty,Inventoriesadjustment,RealEstateadjustment,Equipmentadjustment,IPadjustment,AllAssetsadjustment)],
-       'Compustat/asset_pcts_and_Z1_weights.csv',col.names = F)
+       'asset_pcts_and_Z1_weights.csv',col.names = F)
 
+shell('OptimalZ1Weights.py')

@@ -34,7 +34,7 @@ dtcut = dt[curcd=='USD'&!is.na(curcd)
            &AssetsTotal!=0
            &!is.na(SIC)] #the only firms missing SIC codes are firms that have yet to IPO. I don't understand the connection. They have NAICS codes.
 dtcut[conm=='DELHAIZE AMERICA INC'&calendaryear==2001&CommonSharesOutstanding==91125.785,
-      CommonSharesOutstanding:=dtcut[conm=='DELHAIZE AMERICA INC'&calendaryear==2001]$CommonSharesOutstanding]
+      CommonSharesOutstanding:=dtcut[conm=='DELHAIZE AMERICA INC'&calendaryear==2000]$CommonSharesOutstanding]
 dtcut[,MktVal:=MarketValueTotalFiscal]
 dtcut[is.na(MktVal),MktVal:=PriceCloseAnnualFiscal*CommonSharesOutstanding]
 dtcut[is.na(MktVal),MktVal:=PriceCloseAnnualCalendar*CommonSharesOutstanding]
