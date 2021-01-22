@@ -47,7 +47,7 @@ with open(
 
 weights_to_write = np.c_[np.array(range(solutions.shape[0])) + 1950, solutions]
 
-numpy.savetxt(
+np.savetxt(
     "OptimalZ1Weights.csv",
     weights_to_write,
     delimiter=",",

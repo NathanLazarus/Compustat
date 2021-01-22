@@ -2,37 +2,93 @@ library(data.table)
 
 #This leaves financial firms and firms with missing market values in the data
 
-setwd("C:/Users/Nathan/Downloads")
-companydata=readRDS('Compustat/companydata.rds')
-dt = readRDS('Compustat/fundamentalsannualdata.rds')
+setwd("C:/Users/Nathan/Downloads/Compustat")
+companydata=readRDS('companydata.rds')
+dt = readRDS('fundamentalsannualdata.rds')
+# write_dta(companydata[dt[, c('year1', 'year2') := .(min(fyear), max(fyear)), gvkey], on = 'gvkey', `:=`(year1 = i.year1, year2 = i.year2)],
+#           'C:/Users/Nathan/Downloads/Programs-20201123T183843Z-001/Programs/compustat_names.dta')
+# write_dta(dt, 'C:/Users/Nathan/Downloads/Programs-20201123T183843Z-001/Programs/compustat_data.dta')
 
 na0 = function(x) ifelse(!is.na(x),x,0)
 
+# dt_deloecker_eeckhout = dt[companydata,on='gvkey']
+# dt_deloecker_eeckhout[,(grep('i\\.',names(dt_deloecker_eeckhout),value = T)):=NULL]
+# library(haven)
+# write_dta(dt_deloecker_eeckhout,'C:/Users/Nathan/Downloads/DeloeckerEeckhout/RMP/data/raw_dt.dta')
 companydata[,sic:=as.numeric(sic)]
 companydata[,naics:=as.numeric(naics)]
-varnames = fread('Compustat/CompustatVarnames.csv',header=F)
+varnames = fread('CompustatVarnames.csv',header=F)
 setnames(varnames,c('combined','varname','varfull'))
 varnames[,lowervarname := tolower(varname)]
 merge = varnames[data.table(lowervarname =tolower(names(dt))),on = 'lowervarname',nomatch = 0]
 merge[, UpperCamel := gsub("[^[:alnum:]]","",varfull)]
 setnames(dt,merge$lowervarname,merge$UpperCamel)
 
-dt[companydata,on=c(GlobalCompanyKey='gvkey'),`:=`(currentsic=i.sic,currentnaics=i.naics,loc=i.loc)]
-dt[,SIC:=StandardIndustrialClassificationHistorical]
+dt[companydata,on=c(GlobalCompanyKey='gvkey'),
+   `:=`(currentsic=i.sic,currentnaics=i.naics,loc=i.loc)]
+dt[, SIC:=StandardIndustrialClassificationHistorical]
 dt[is.na(SIC),SIC:=currentsic]
-dt[,NAICS:=NorthAmericaIndustrialClassificationSystemHistorical]
+dt[, NAICS:=NorthAmericaIndustrialClassificationSystemHistorical]
+dt[is.na(NAICS),NAICS:=currentnaics]
 
-dt[,calendaryear:=year(datadate)]
+dt[, calendaryear:=year(datadate)]
+dt[, cusip6 := substr(cusip, 1, 6)]
 
-saveRDS(dt,'Compustat/raw_dt.rds')
+KLDdata = readRDS('KLD_stats_indicators.rds')
+#remove rows that are all NA
+KLDdata = KLDdata[KLDdata[, lapply(.SD, is.na), .SDcols = 6:ncol(KLDdata)
+                        ][, rowSums(.SD)] != (ncol(KLDdata) - 6 + 1)]
+KLDdata[, laborConcern := na0(`Union Relations Concerns`) + na0(`Health and Safety Concerns`) + 
+          na0(`Labor Management Concerns`) + na0(`Other Employee Relations Concerns`)]
+KLDdata[, laborStrength := na0(`Union Relations Strength`) + na0(`Cash Profit Sharing`) + 
+          na0(`Employee Involvement`) + na0(`Heatlh and Safety Strength`) + 
+          na0(`Employee Relations Strength`) + na0(`Human Capital Development`) + 
+          na0(`Labor Management Strength`) + na0(`Other Employee Relations Strength`)]
+
+KLDdata[laborConcern > 1, laborConcern := 1]
+KLDdata[laborStrength > 1, laborStrength := 1]
+KLDdata[, cusip6 := substr(cusip, 1, 6)]
+KLDclean = KLDdata[!is.na(cusip),
+                   .(laborConcern = sum(laborConcern),
+                     laborStrength = sum(laborStrength),
+                     `Anticompetitive Practices` = sum(`Anticompetitive Practices`)),
+                   .(cusip6, year)]
+KLDclean[laborConcern > 1, laborConcern := 1]
+KLDclean[laborStrength > 1, laborStrength := 1]
+KLDclean[`Anticompetitive Practices` > 1, `Anticompetitive Practices` := 1]
+
+#rolling 5 year window
+KLDstack = rbind(KLDclean,
+                 copy(KLDclean)[, year := year + 1],
+                 copy(KLDclean)[, year := year + 2],
+                 copy(KLDclean)[, year := year - 1],
+                 copy(KLDclean)[, year := year - 2],
+                 fill = T)
+KLDstack[, .(laborConcern = sum(laborConcern),
+             laborStrength = sum(laborStrength),
+             `Anticompetitive Practices` = sum(`Anticompetitive Practices`)),
+         .(cusip6, year)]
+KLDstack[laborConcern > 1, laborConcern := 1]
+KLDstack[laborStrength > 1, laborStrength := 1]
+KLDstack[`Anticompetitive Practices` > 1, `Anticompetitive Practices` := 1]
+KLDstack[, laborRelations := laborStrength - laborConcern]
+
+dt[KLDstack, on = c('cusip6', calendaryear = 'year'), `:=`(
+  laborStrength = i.laborStrength, laborConcern = i.laborConcern,
+  laborRelations = i.laborRelations, `Anticompetitive Practices` = `i.Anticompetitive Practices`
+)]
+
+fwrite(dt,'raw_dt.csv')
+
 
 dtcut = dt[curcd=='USD'&!is.na(curcd)
            &loc=='USA'
-           &indfmt=='INDL'
            &consol=='C'
            &datafmt=='STD'
            &AssetsTotal!=0
            &!is.na(SIC)] #the only firms missing SIC codes are firms that have yet to IPO. I don't understand the connection. They have NAICS codes.
+
+dtcut = dtcut[dtcut[,.I[sum(indfmt=='INDL')==0|indfmt=='INDL'],.(GlobalCompanyKey,DataYearFiscal)]$V1] #I use indfmt FS and INDL and then drop FS reports when they're duplicated
 dtcut[conm=='DELHAIZE AMERICA INC'&calendaryear==2001&CommonSharesOutstanding==91125.785,
       CommonSharesOutstanding:=dtcut[conm=='DELHAIZE AMERICA INC'&calendaryear==2000]$CommonSharesOutstanding]
 dtcut[,MktVal:=MarketValueTotalFiscal]
@@ -43,6 +99,7 @@ dtcut[is.na(PreferredPreferenceStockCapitalTotal)&!is.na(PreferredPreferenceStoc
 
 dtcut[,preferred:=pmax(PreferredPreferenceStockCapitalTotal,PreferredStockLiquidatingValue,PreferredStockRedemptionValue,PreferredStockConvertible,na.rm = T)]
 dtcut[!is.na(preferred),MktVal:=MktVal+preferred]
+dtcut = dtcut[MktVal != 0 | is.na(MktVal)] #drop about 100 firms with 0 common shares outstanding, mostly firms in the process of dissolving
 
 dtcut[,haspreviousfiscalyear:=(DataYearFiscal-1)%in%DataYearFiscal,GlobalCompanyKey]
 dtcut[,hascalendaryear:=DataYearFiscal%in%calendaryear,GlobalCompanyKey]
@@ -54,18 +111,6 @@ dtcut = rbind(dtcut,missings)
 setkey(dtcut,GlobalCompanyKey,calendaryear)
 dtcut[,keep:=datadate==max(datadate),.(calendaryear,GlobalCompanyKey)]
 dtcut = dtcut[keep==T]
-
-# historicalcost = fread('C:/Users/Nathan/Downloads/HistoricalCostZ1.csv')
-# historicalcostgood = historicalcost[substr(`Series Description`,5,6)=='Q4']
-# historicalcostgood[,`Series Description`:=substr(`Series Description`,1,4)]
-# historicalcostgood = historicalcostgood[,lapply(.SD,as.numeric)]
-# setnames(historicalcostgood,c('year','marketprice','historicalprice'))
-# historicalcostgood[,adjustment:=marketprice/historicalprice]
-# 
-# dtcut[historicalcostgood,on=c(calendaryear='year'),adjustment:=i.adjustment]
-# 
-# setkey(dtcut,calendaryear)
-# dtcut = dtcut[calendaryear%in%historicalcostgood$year]
 
 dtcut = dtcut[calendaryear < 2020]
 
@@ -89,4 +134,4 @@ dtcut[,predictedintangibleratio:=pmax(predict(intangiblemod,dtcut),0)
 
 
 
-saveRDS(dtcut,'Compustat/dtcut.rds')
+fwrite(dtcut, 'dtcut.csv', quote = T)

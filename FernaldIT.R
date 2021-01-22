@@ -1,145 +1,30 @@
 library(data.table)
 library(openxlsx)
+library(readxl)
 library(foreach)
+library(iterators)
+library(stringr)
 library(readxl)
 
-setwd("C:/Users/Nathan/Downloads/Compustat")
-companydata=readRDS('companydata.rds')
-dt = readRDS('fundamentalsannualdata.rds')
-SICtoNAICS_bls = readRDS('SIC1987toNAICS2002ratios_bls.rds')
-SICtoNAICS_bls[,sic:=as.numeric(sic)]
-SICtoNAICS_bls[,naics:=as.numeric(naics)]
-SICtoNAICS_bls[,sic_ratio:=sic_ratio/100]
-
-# companydata[,sic:=as.numeric(sic)]
-# companydata[,naics:=as.numeric(naics)]
-# varnames = fread('CompustatVarnames.csv',header=F)
-# setnames(varnames,c('combined','varname','varfull'))
-# varnames[,lowervarname := tolower(varname)]
-# merge = varnames[data.table(lowervarname =tolower(names(dt))),on = 'lowervarname',nomatch = 0]
-# merge[, UpperCamel := gsub("[^[:alnum:]]","",varfull)]
-# setnames(dt,merge$lowervarname,merge$UpperCamel)
-# 
-# dt[companydata,on=c(GlobalCompanyKey='gvkey'),`:=`(currentsic=i.sic,currentnaics=i.naics,loc=i.loc)]
-# dt[,SIC:=StandardIndustrialClassificationHistorical]
-# dt[is.na(SIC),SIC:=currentsic]
-# dt[,NAICS:=NorthAmericaIndustrialClassificationSystemHistorical]
-# dt[is.na(NAICS),NAICS:=currentnaics]
-# 
-# dt[,calendaryear:=year(datadate)]
-# 
-# 
-# dtcut = dt[curcd=='USD'&!is.na(curcd)
-#            &loc=='USA'
-#            &indfmt=='INDL'
-#            &consol=='C'
-#            &datafmt=='STD'
-#            #&(SIC<6000|SIC>6499)
-#            &AssetsTotal!=0]
-# 
-# nrow(dtcut)
-# dtcut[conm=='DELHAIZE AMERICA INC'&calendaryear==2001&CommonSharesOutstanding==91125.785,
-#       CommonSharesOutstanding:=dtcut[conm=='DELHAIZE AMERICA INC'&calendaryear==2001]$CommonSharesOutstanding]
-# dtcut[,MktVal:=MarketValueTotalFiscal]
-# dtcut[is.na(MktVal),MktVal:=PriceCloseAnnualFiscal*CommonSharesOutstanding]
-# dtcut[is.na(MktVal),MktVal:=PriceCloseAnnualCalendar*CommonSharesOutstanding]
-# dtcut = dtcut[!is.na(MktVal)&MktVal>0]
-# nrow(dtcut)
-# #dtcut = dtcut[is.na(MktVal)|MktVal<=0]
-# 
-# dtcut[,haspreviousfiscalyear:=(DataYearFiscal-1)%in%DataYearFiscal,GlobalCompanyKey]
-# dtcut[,hascalendaryear:=DataYearFiscal%in%calendaryear,GlobalCompanyKey]
-# dtcut[,missing:=haspreviousfiscalyear&!hascalendaryear][,wasmissing:=0]
-# missings = dtcut[missing==T]
-# missings[,calendaryear:=DataYearFiscal][,wasmissing:=1]
-# nrow(dtcut)
-# dtcut = rbind(dtcut,missings)
-# dtcut[,keep:=datadate==max(datadate),.(calendaryear,GlobalCompanyKey)]
-# dtcut = dtcut[keep==T]
-# nrow(dtcut)
-
-dtcut = readRDS('dtcut_for_spreadsheets.rds')
-dtcut[is.na(NAICS),NAICS:=currentnaics]
-missingSICvalues = setdiff(100*unique(dtcut[,as.numeric(twodigitsic)]),SICtoNAICS_bls$sic)
-additional_SICs = foreach(val=missingSICvalues[missingSICvalues!=9900],.combine=rbind)%do%{
-customcrosswalk = unique(dtcut,by=c('GlobalCompanyKey','NAICS'))[SIC==val&!is.na(NAICS),.(numfirms = .N),NAICS]
-customcrosswalk[,sic:=val][,sic_ratio:=numfirms/sum(numfirms)]
+getCharCols = function(x) {
+  jkl = readLines(x,n = 2)[2]
+  cols = strsplit(jkl,',')[[1]]
+  grep('"',cols)
 }
-setnames(additional_SICs,'NAICS','naics')
-additional_SICs[,numfirms:=NULL]
-additional_SICs = rbind(additional_SICs,data.table(sic=9900,naics=999990,sic_ratio=1))
-SICtoNAICS = rbind(SICtoNAICS_bls,additional_SICs,fill=T)
 
-# suppressWarnings(dtcut[,sic:=NULL])
-missingNAICS = dtcut[is.na(NAICS)]
-missingNAICS[SIC%in%SICtoNAICS$sic,sic:=SIC]
-missingNAICS[is.na(sic) & (SIC - SIC %% 10) %in% SICtoNAICS$sic, sic := SIC - SIC %% 10]
-missingNAICS[is.na(sic) & (SIC - SIC %% 100) %in% SICtoNAICS$sic, sic := SIC - SIC %% 100]
-# setkey(dtcut,sic)
-# setkey(SICtoNAICS,sic)
-# rbind(missingNAICS[SICtoNAICS,eval(.(names...)),by=.EACHI],missingNAICS[sic>9000])
-addingNAICS = merge(missingNAICS,SICtoNAICS,by='sic',all.x = T,allow.cartesian=T)
-addingNAICS[,NAICSadded:=1]
-addingNAICS[,`:=`(`CES SIC Tabulating Code`=NULL,
-                  `SIC Industry`=NULL,
-                  `CES NAICS Tabulating Code`=NULL,
-                  `NAICS Industry`=NULL,
-                  `SIC to NAICS Employment Ratio`=NULL)]
-setnames(addingNAICS,'naics','imputed_NAICS')
-withNAICS = rbind(dtcut,addingNAICS,fill=T)
-withNAICS[is.na(NAICS)&is.na(NAICSadded),sic_ratio:=0]
-withNAICS[,realfirm:=is.na(NAICSadded)]
-withNAICS[!is.na(NAICS)&is.na(NAICSadded),sic_ratio:=1]
-withNAICS[!is.na(NAICS),true_NAICS:=NAICS][is.na(NAICS),true_NAICS:=imputed_NAICS]
-withNAICS[,true_NAICS:=as.numeric(str_pad(true_NAICS, width=6, side='right', pad='0'))]
+rbind_and_fill = function(...) rbind(...,fill=T)
 
-withNAICS[,two_digit_NAICS:=true_NAICS-true_NAICS%%10000]
+fread_and_getCharCols = function(x) {
+  fread(x, colClasses = list(character = getCharCols(x)))
+}
 
+setwd("C:/Users/Nathan/Downloads/Compustat")
+withSixDigit = fread_and_getCharCols('withMarkups.csv')
 
-withNAICS[true_NAICS%%10000!=0,three_digit_NAICS:=true_NAICS-true_NAICS%%1000]
-missing_three_digit_NAICS = withNAICS[true_NAICS%%10000==0]
-two_digit_to_three = unique(withNAICS,by=c('GlobalCompanyKey','NAICS'))[!is.na(three_digit_NAICS)&realfirm==T,
-                               .(numfirms = .N,two_digit_NAICS=median(two_digit_NAICS)),
-                               by = three_digit_NAICS]
-two_digit_to_three[,two_to_three_ratio:=numfirms/sum(numfirms),two_digit_NAICS]
-setnames(two_digit_to_three,'three_digit_NAICS','imputed_three_digit_NAICS')
-two_digit_to_three[,numfirms:=NULL]
-addingThreeDigit = merge(missing_three_digit_NAICS,two_digit_to_three,by='two_digit_NAICS',all.x = T,allow.cartesian=T)
-addingThreeDigit[,ThreeDigitadded:=1]
-addingThreeDigit[,three_digit_ratio := two_to_three_ratio*sic_ratio]
-withThreeDigit = rbind(withNAICS,addingThreeDigit,fill=T)
-withThreeDigit[is.na(three_digit_NAICS)&is.na(ThreeDigitadded),three_digit_ratio:=0]
-withThreeDigit[,realfirm:=is.na(NAICSadded)&is.na(ThreeDigitadded)]
-
-withThreeDigit[!is.na(three_digit_NAICS)&is.na(ThreeDigitadded),three_digit_ratio:=1]
-withThreeDigit[!is.na(three_digit_NAICS),true_three_digit_NAICS:=three_digit_NAICS][is.na(three_digit_NAICS),true_three_digit_NAICS:=imputed_three_digit_NAICS]
-
-
-withThreeDigit[true_NAICS%%1000!=0,four_digit_NAICS:=true_NAICS-true_NAICS%%100]
-missing_four_digit_NAICS = withThreeDigit[true_NAICS%%1000==0]
-three_digit_to_four = unique(withThreeDigit,by=c('GlobalCompanyKey','NAICS'))[!is.na(four_digit_NAICS)&realfirm==T,
-                               .(numfirms = .N,true_three_digit_NAICS=median(true_three_digit_NAICS)),
-                               by = four_digit_NAICS]
-three_digit_to_four[,three_to_four_ratio:=numfirms/sum(numfirms),true_three_digit_NAICS]
-setnames(three_digit_to_four,'four_digit_NAICS','imputed_four_digit_NAICS')
-addingFourDigit = merge(missing_four_digit_NAICS,three_digit_to_four,by='true_three_digit_NAICS',all.x = T,allow.cartesian=T)
-addingFourDigit[,FourDigitadded:=1]
-addingFourDigit[,four_digit_ratio := three_to_four_ratio*three_digit_ratio]
-withFourDigit = rbind(withThreeDigit,addingFourDigit,fill=T)
-
-withFourDigit = withFourDigit[!is.na(four_digit_NAICS)|!is.na(imputed_four_digit_NAICS)]
-
-withFourDigit[is.na(four_digit_NAICS)&is.na(FourDigitadded),four_digit_ratio:=0]
-withFourDigit[,realfirm:=is.na(NAICSadded)&is.na(ThreeDigitadded)&is.na(FourDigitadded)]
-withFourDigit[!is.na(four_digit_NAICS)&is.na(FourDigitadded),four_digit_ratio:=1]
-withFourDigit[!is.na(four_digit_NAICS),true_four_digit_NAICS:=four_digit_NAICS][is.na(four_digit_NAICS),true_four_digit_NAICS:=imputed_four_digit_NAICS]
-
-
-
-withFourDigit[,monopolywealth:=monopolywealth*four_digit_ratio]
-withFourDigit[,totalwealth:=totalwealth*four_digit_ratio]
-withFourDigit[,marketvalue:=MktVal*four_digit_ratio]
-
+# withSixDigit[,monopolywealth:=monopolywealth*six_digit_ratio]
+# withSixDigit[,totalwealth:=totalwealth*six_digit_ratio]
+# withSixDigit[,marketvalue:=MktVal*six_digit_ratio]
+withSixDigit[,marketvalue := MktVal]
 
 it_producing_industries = c(5415,511,516,334)
 
@@ -160,58 +45,191 @@ itertable = data.table(var_name = c('it_producing','it_intensive','non_financial
                        var_industries = list(it_producing_industries,it_intensive_industries,non_financial_industries))
 throwaway = foreach(row=iter(itertable,by = 'row'))%do%{
   industries = row$var_industries[[1]]
-  withFourDigit[,(row$var_name):=(true_four_digit_NAICS%/%100)%in%industries
-                              |(true_four_digit_NAICS%/%1000)%in%industries
-                              |(true_four_digit_NAICS%/%10000)%in%industries]
+  withSixDigit[,(row$var_name):=(true_six_digit_NAICS%/%100)%in%industries
+                              |(true_six_digit_NAICS%/%1000)%in%industries
+                              |(true_six_digit_NAICS%/%10000)%in%industries]
   NULL
 }
 
-# withFourDigit[,it_intensive:=(true_four_digit_NAICS%/%100)%in%it_intensive_list
+# withSixDigit[,it_intensive:=(true_four_digit_NAICS%/%100)%in%it_intensive_list
 #                             |(true_four_digit_NAICS%/%1000)%in%it_intensive_list
 #                             |(true_four_digit_NAICS%/%10000)%in%it_intensive_list]
 # 
-# withFourDigit[,non_financial:=(true_four_digit_NAICS%/%100)%in%non_financial_list
+# withSixDigit[,non_financial:=(true_four_digit_NAICS%/%100)%in%non_financial_list
 #               |(true_four_digit_NAICS%/%1000)%in%non_financial_list
 #               |(true_four_digit_NAICS%/%10000)%in%non_financial_list]
 
-# it_producing_data = withFourDigit[non_financial==T,.(monopolywealth = sum(monopolywealth)),.(itprod,calendaryear)]
-# it_intensive_data = withFourDigit[non_financial==T&itprod==F,.(monopolywealth = sum(monopolywealth)),.(it_intensive,calendaryear)]
+# it_producing_data = withSixDigit[non_financial==T,.(monopolywealth = sum(monopolywealth)),.(itprod,calendaryear)]
+# it_intensive_data = withSixDigit[non_financial==T&itprod==F,.(monopolywealth = sum(monopolywealth)),.(it_intensive,calendaryear)]
 # setkey(it_producing_data,calendaryear)
 # setkey(it_intensive_data,calendaryear)
-# withFourDigit[,itprod:=it_producing]
-# it_producing_data = withFourDigit[non_financial==T&itprod==T&!is.na(monopolywealth)&!is.na(totalwealth),
+# withSixDigit[,itprod:=it_producing]
+# it_producing_data = withSixDigit[non_financial==T&itprod==T&!is.na(monopolywealth)&!is.na(totalwealth),
 #                                   .(monopolywealth = sum(monopolywealth),totalwealth = sum(totalwealth)),calendaryear]
-# it_intensive_data = withFourDigit[non_financial==T&itprod==F&it_intensive==T&!is.na(monopolywealth)&!is.na(totalwealth),
+# it_intensive_data = withSixDigit[non_financial==T&itprod==F&it_intensive==T&!is.na(monopolywealth)&!is.na(totalwealth),
 #                                   .(monopolywealth = sum(monopolywealth),totalwealth = sum(totalwealth)),calendaryear]
-# non_it_data = withFourDigit[non_financial==T&itprod==F&it_intensive==F&!is.na(monopolywealth)&!is.na(totalwealth),
+# non_it_data = withSixDigit[non_financial==T&itprod==F&it_intensive==F&!is.na(monopolywealth)&!is.na(totalwealth),
 #                             .(monopolywealth = sum(monopolywealth),totalwealth = sum(totalwealth)),calendaryear]
 # setkey(it_producing_data,calendaryear)
 # setkey(it_intensive_data,calendaryear)
 # setkey(non_it_data,calendaryear)
 # it_producing_data[it_intensive_data,`:=`(it_intensive_monopolywealth=i.monopolywealth,it_intensive_totalwealth=i.totalwealth)]
 # it_producing_data[non_it_data,`:=`(non_it_monopolywealth=i.monopolywealth,non_it_totalwealth=i.totalwealth)]
-withFourDigit[,firmtype:=factor(ifelse(it_producing == T, 'it_producing',
+withSixDigit[,firmtype:=factor(ifelse(it_producing == T, 'it_producing',
                                        ifelse(it_intensive == T,'it_intensive',
                                               'non_it')),
                                 levels = c('it_producing','it_intensive','non_it'))]
-aggregates = withFourDigit[non_financial==T&!is.na(monopolywealth),
+aggregates_by_it_use = withSixDigit[non_financial==T&!is.na(monopolywealth),
                     .(monopolywealth = sum(monopolywealth),totalwealth = sum(totalwealth),marketvalue = sum(marketvalue)),
                     .(calendaryear,firmtype)]
-aggregates_wide = dcast(aggregates,calendaryear~firmtype,value.var = c('monopolywealth','totalwealth','marketvalue'))
+aggregates_wide = dcast(aggregates_by_it_use,calendaryear~firmtype,value.var = c('monopolywealth','totalwealth','marketvalue'))
+
 fwrite(aggregates_wide,'MonopolyWealthByIT.csv')
-aggregates = withFourDigit[non_financial==T&!is.na(monopolywealth),
-                           .(monopolywealth = sum(monopolywealth),totalwealth = sum(totalwealth),marketvalue = sum(marketvalue)),
-                           .(calendaryear,firmtype)]
 
 NAICS_codes_to_names = data.table(read_excel('2017_NAICS_Codes.xlsx'))
-NAICS_codes_to_names[,Code := as.numeric(str_pad(Code, width=6, side='right', pad='0'))]
-withFourDigit[,three_digit_HHI := ]
-industry_aggregates = withFourDigit[!is.na(monopolywealth)&calendaryear==2019,
-                                           .(.N,monopolywealth = sum(monopolywealth),totalwealth = sum(totalwealth),marketvalue = sum(marketvalue)),
+suppressWarnings(NAICS_codes_to_names[,Code := as.numeric(str_pad(Code, width=6, side='right', pad='0'))])
+withSixDigit[,three_digit_HHI := sum((SalesTurnoverNet/sum(SalesTurnoverNet))^2),.(three_digit_NAICS,calendaryear)]
+#create imputation datasets with different NAICS codes and average the resulting HHIs. Or try to solve for the average analytically.
+#But don't treat all the imputed firms as small firms in a variety of industries
+industry_aggregates = withSixDigit[!is.na(monopolywealth)&calendaryear==2019,
+                                           .(.N,monopolywealth = sum(monopolywealth*six_digit_ratio),totalwealth = sum(totalwealth*six_digit_ratio),marketvalue = sum(marketvalue*six_digit_ratio)),
                                            .(true_three_digit_NAICS)]
 monopolywealth_by_industry = industry_aggregates[,mwtw:=monopolywealth/totalwealth
                                                ][,mwv:=monopolywealth/marketvalue
                                                ][NAICS_codes_to_names,on=c(true_three_digit_NAICS='Code')]
-setkey(monopolywealth_by_industry,mwv)
-asdf = monopolywealth_by_industry[N>=1]
+setorder(monopolywealth_by_industry,-mwv)
+monopolywealth_by_industry = monopolywealth_by_industry[N>=2]
+setnames(monopolywealth_by_industry, 'true_three_digit_NAICS', 'NAICS Code')
+monopolywealth_by_industry[substr(`NAICS Code`,1,2) == '52', `:=`(totalwealth=NA, mwtw = NA)]
+setcolorder(monopolywealth_by_industry, c('Name'))
+monopolywealth_by_industry[,`NAICS Code`:=`NAICS Code`/1000]
+
+industry_aggregates_1985 = withSixDigit[!is.na(monopolywealth)&calendaryear==1985,
+                                        .(.N,monopolywealth = sum(monopolywealth*six_digit_ratio),totalwealth = sum(totalwealth*six_digit_ratio),marketvalue = sum(marketvalue*six_digit_ratio)),
+                                        .(true_three_digit_NAICS)]
+monopolywealth_by_industry_1985 = industry_aggregates_1985[,mwtw:=monopolywealth/totalwealth
+                                                    ][,mwv:=monopolywealth/marketvalue
+                                                    ][NAICS_codes_to_names,on=c(true_three_digit_NAICS='Code')]
+monopolywealth_by_industry_1985 = monopolywealth_by_industry_1985[N>=1]
+monopolywealth_by_industry_1985[substr(true_three_digit_NAICS,1,2) == '52', `:=`(totalwealth=NA, mwtw = NA)]
+
+monopolywealth_by_industry[monopolywealth_by_industry_1985,on = 'Name', `:=`(mwv_1985 = i.mwv, mwtw_1985 = i.mwtw)]
+
+write.xlsx(monopolywealth_by_industry,
+           'monopoly_wealth_by_industry_2019.xlsx')
+
+
+aggregate_capital = data.table(
+  read.xlsx('cap_details.xlsx',sheet = 'DATA')
+  )[NAICS == 'FB', NAICS := '111,112'
+  ][grep('487', NAICS), NAICS := '487488491492'
+  ][grep('[0-9]',NAICS)
+  ][Measure=='Productive capital stock (direct aggregate-billions of 2012 dollars)'&
+    Asset.Category=='All assets'&
+    Duration.Title=='Levels'
+  ][Asset.Category=='All assets',Asset.Category:='All_Assets']
+intellectual_property_capital = data.table(
+  read.xlsx('cap_details_ipp.xlsx',sheet = 'Data')
+  )[NAICS == 'FB', NAICS := '111,112'
+  ][grep('487', NAICS), NAICS := '487488491492'
+  ][grep('[0-9]',NAICS)
+  ][Measure=='Productive capital stock (direct aggregate-billions of 2012 dollars)'&
+    Asset.Category!='Total'&
+    Duration.Title=='Levels']
+information_capital = data.table(
+  read.xlsx('cap_details_ipe.xlsx',sheet = 'Data')
+  )[NAICS == 'FB', NAICS := '111,112'
+  ][grep('487', NAICS), NAICS := '487488491492'
+  ][grep('[0-9]', NAICS)
+  ][Measure=='Productive capital stock (direct aggregate-billions of 2012 dollars)'&
+    Asset.Category!='Total'&
+    Duration.Title=='Levels']
+
+yearcols_to_numeric = function(x) suppressWarnings(
+                                                    x[,
+                                                     (names(x)[names(x)%in%as.character(1900:2030)]) := lapply(.SD,as.numeric),
+                                                     .SDcols = names(x)[names(x)%in%as.character(1900:2030)]
+                                                     ]
+                                                   )
+yearcols_to_numeric(aggregate_capital)
+yearcols_to_numeric(information_capital)
+yearcols_to_numeric(intellectual_property_capital)
+
+intellectual_property_capital = dcast(intellectual_property_capital,NAICS+NAICS.Title+Measure+Duration.Title~Asset.Category,value.var = grep('^[0-9]{4}$',names(intellectual_property_capital), value = T))
+information_capital = dcast(information_capital,NAICS+NAICS.Title+Measure+Duration.Title~Asset.Category,value.var = grep('^[0-9]{4}$',names(information_capital), value = T))
+aggregate_capital = dcast(aggregate_capital,NAICS+NAICS.Title+Measure+Duration.Title~Asset.Category,value.var = grep('^[0-9]{4}$',names(aggregate_capital), value = T))
+setnames(aggregate_capital,sub('(?<=[0-9]{4})','_capital',names(aggregate_capital),perl=T))
+capital_data = aggregate_capital[information_capital,on='NAICS'][intellectual_property_capital,on='NAICS']
+
+aggregate_capital[grep('^[0-9]{5,}$',NAICS),NAICS := prettyNum(NAICS, big.mark = ',')] #insert commas into the NAICS codes of 5-digits or more (which are actually three digit codes squished together)
+
+
+aggregate_capital = aggregate_capital[aggregate_capital[,.(split=trimws(unlist(strsplit(NAICS,',')))),by=NAICS],on='NAICS']
+aggregate_capital[,c('NAICSmin','NAICSmax'):=tstrsplit(split,'-')
+                ][is.na(NAICSmax),NAICSmax:=NAICSmin]
+aggregate_capital[,NAICSmin:=as.numeric(str_pad(NAICSmin, width=6, side='right', pad='0'))]
+aggregate_capital[,NAICSmax:=as.numeric(str_pad(NAICSmax, width=6, side='right', pad='9'))]
+BEA_capital_assets = aggregate_capital[intellectual_property_capital,on=c('NAICS.Title','Measure','Duration.Title')
+                     ][,i.NAICS:=NULL
+                     ][information_capital,on=c('NAICS.Title','Measure','Duration.Title')
+                     ][,i.NAICS:=NULL
+                     ]
+setnames(BEA_capital_assets,'NAICS','BEA_NAICS_str')
+foreach(year = 1987:2018)%do%{
+  eval(parse(text = paste0('BEA_capital_assets[,it_capital_',year,' := sum(`',year,'_Software`, `',year,'_Computers`, `',year,'_Communication`, `',year,'_Other`, na.rm = T), by = 1:nrow(BEA_capital_assets)]')))
+  eval(parse(text = paste0('BEA_capital_assets[,it_capital_ratio_',year,' := it_capital_',year,' / `',year,'_capital_All_Assets`]')))
+  eval(parse(text = paste0('BEA_capital_assets[,computer_capital_ratio_',year,' := `',year,'_Computers` / `',year,'_capital_All_Assets`]')))
+  eval(parse(text = paste0('BEA_capital_assets[,communication_capital_ratio_',year,' := `',year,'_Communication` / `',year,'_capital_All_Assets`]')))
+  eval(parse(text = paste0('BEA_capital_assets[,other_capital_ratio_',year,' := `',year,'_Other` / `',year,'_capital_All_Assets`]')))
+  eval(parse(text = paste0('BEA_capital_assets[,software_capital_ratio_',year,' := `',year,'_Software` / `',year,'_capital_All_Assets`]')))
+  eval(parse(text = paste0('BEA_capital_assets[,artistic_capital_ratio_',year,' := `',year,'_Artistic originals` / `',year,'_capital_All_Assets`]')))
+  eval(parse(text = paste0('BEA_capital_assets[,rd_capital_ratio_',year,' := `',year,'_Research and development` / `',year,'_capital_All_Assets`]')))
+  eval(parse(text = paste0('BEA_capital_assets[,ip_capital_',year,' := sum(`',year,'_Software`, `',year,'_Artistic originals`, `',year,'_Research and development`, na.rm = T), by = 1:nrow(BEA_capital_assets)]')))
+  eval(parse(text = paste0('BEA_capital_assets[,ip_capital_ratio_',year,' := ip_capital_',year,' / `',year,'_capital_All_Assets`]')))
+  NULL
+}
+BEA_capital_assets[,average_it_capital_ratio := rowMeans(.SD,na.rm = T),.SDcols = grep('it_capital_ratio',names(BEA_capital_assets),value = T)]
+BEA_capital_assets[,average_ip_capital_ratio := rowMeans(.SD,na.rm = T),.SDcols = grep('ip_capital_ratio',names(BEA_capital_assets),value = T)]
+BEA_capital_assets[,average_computer_capital_ratio := rowMeans(.SD,na.rm = T),.SDcols = grep('computer_capital_ratio',names(BEA_capital_assets),value = T)]
+withSixDigit[,true_six_digit_NAICS2:=true_six_digit_NAICS]
+setkey(withSixDigit,true_six_digit_NAICS,true_six_digit_NAICS2)
+setkey(BEA_capital_assets,NAICSmin,NAICSmax)
+howsthis2 = foverlaps(withSixDigit[true_six_digit_NAICS < 999900], BEA_capital_assets)
+howsthis2[,c('NAICSmin','NAICSmax') := NULL]
 #516110 becomes 519130
+data1987 = howsthis2[calendaryear == 1987 & !is.na(monopolywealth)& !is.na(totalwealth)& !is.na(marketvalue) & !is.na(NAICS.Title),
+          .(mw = sum(monopolywealth*six_digit_ratio), tw = sum(totalwealth*six_digit_ratio), mktval = sum(marketvalue*six_digit_ratio)),NAICS.Title]
+data2018 = howsthis2[calendaryear == 2018 & !is.na(monopolywealth)& !is.na(totalwealth)& !is.na(marketvalue) & !is.na(NAICS.Title),
+          .(mw = sum(monopolywealth*six_digit_ratio), tw = sum(totalwealth*six_digit_ratio), mktval = sum(marketvalue*six_digit_ratio)),NAICS.Title]
+setkey(data1987,NAICS.Title)
+setkey(data2018,NAICS.Title)
+data2018[,deltaMW:=data2018$mw/data2018$tw - data1987$mw/data1987$tw]
+data2018[,MWTW2018 := data2018$mw/data2018$tw]
+regression_data = data2018[BEA_capital_assets, on = 'NAICS.Title'] #[,monopoly_wealth_over_total_wealth := mw/tw]
+summary(lm(MWTW2018 ~ computer_capital_ratio_1987 + communication_capital_ratio_1987 + other_capital_ratio_1987 + software_capital_ratio_1987 + rd_capital_ratio_1987,data = regression_data))
+summary(lm(MWTW2018 ~ it_capital_1987,data = regression_data))
+
+input_output_IT = fread_and_getCharCols('input_output_IT.csv')
+setkey(howsthis2,true_six_digit_NAICS,true_six_digit_NAICS2)
+setkey(input_output_IT,NAICSmin,NAICSmax)
+howsthis3 = foverlaps(howsthis2, input_output_IT)
+howsthis3[,c('NAICSmin','NAICSmax') := NULL]
+
+IT_employment = fread_and_getCharCols('IT_employment.csv')
+IT_employment[,NAICSmin:=as.numeric(str_pad(naics, width=6, side='right', pad='0'))]
+IT_employment[,NAICSmax:=as.numeric(str_pad(naics, width=6, side='right', pad='9'))]
+IT_employment[, temp_unique_NAICSmin := (YEAR - 1900) * 1000000 + NAICSmin
+            ][, temp_unique_NAICSmax := (YEAR - 1900) * 1000000 + NAICSmax
+            ]
+setkey(IT_employment, temp_unique_NAICSmin, temp_unique_NAICSmax)
+howsthis3[, temp_unique_NAICS := (calendaryear - 1900) * 1000000 + true_six_digit_NAICS]
+howsthis3[, temp_unique_NAICS2 := temp_unique_NAICS]
+setkey(howsthis3, temp_unique_NAICS, temp_unique_NAICS2)
+howsthis4 = foverlaps(howsthis3, IT_employment)
+
+firm_software_patenting = fread_and_getCharCols('firm_software_patenting.csv')
+howsthis4[firm_software_patenting,
+          on = c(calendaryear = 'appyear', GlobalCompanyKey = 'gvkey'),
+          `:=`(software_patents = i.patents, software_patents_rolling_5 = i.patents_rolling_5)]
+
+fwrite(howsthis4,'foranalysis.csv')

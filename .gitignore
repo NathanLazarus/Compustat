@@ -4,3 +4,4 @@
 *.csv
 *.xlsm
 *unformatted.py
+.Rhistory
