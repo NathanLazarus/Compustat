@@ -6,8 +6,8 @@ library(doSNOW)
 
 
 getCharCols = function(x) {
-  jkl = readLines(x,n = 2)[2]
-  cols = strsplit(jkl,',')[[1]]
+  second_line = readLines(x,n = 2)[2]
+  cols = strsplit(second_line, ',')[[1]]
   grep('"',cols)
 }
 
@@ -15,8 +15,8 @@ fread_and_getCharCols = function(x) {
   fread(x, colClasses = list(character = getCharCols(x)))
 }
 
-dtcut = fread_and_getCharCols('dtcut.csv')
-Z1 = fread('Z1_assets.csv')
+dtcut = fread_and_getCharCols('IntermediateFiles/dtcut.csv')
+Z1 = fread('Data/Z1 Assets at Current and Historical Prices.csv')
 
 Z1[,calendaryear := as.integer(substring(Year,1,4))][,Year := NULL]
 setnames(Z1,gsub("[^[:alnum:]]","",names(Z1)))
@@ -91,11 +91,11 @@ industry_year_PPE_aggregates[industry_aggregate_real_estate_share,on='twodigitsi
                            ][,min_re_share := realestate_categorized/total]
 setkey(industry_year_PPE_aggregates,calendaryear,twodigitsic)
 fwrite(industry_year_PPE_aggregates[,.(realestate_categorized,uncategorized,total,desired_real_estate_share,sector_re_share,calendaryear,twodigitsic)],
-       'real_estate_equipment_to_weight.csv',col.names = T)
+       'IntermediateFiles/real_estate_equipment_to_weight.csv',col.names = T)
 
 shell('real_estate_equipment_weights.py')
 
-optimal_real_estate_weights = fread('Optimal_real_estate_equipment_Weights.csv')
+optimal_real_estate_weights = fread('IntermediateFiles/Optimal_real_estate_equipment_Weights.csv')
 optimal_real_estate_weights[,twodigitsic := as.character(twodigitsic)]
 setkey(optimal_real_estate_weights,calendaryear,twodigitsic)
 setkey(dtcut,calendaryear,twodigitsic)
@@ -286,11 +286,11 @@ pctsbyfin[,dontrevalue := ReceivablesTotal+DeferredCharges+PrepaidExpenses+
 pctsbyfin[,adjustment_if_categories_matched_up := InventoriesTotal*Inventoriesadjustment+realestate*RealEstateadjustment+equipment*Equipmentadjustment+IntellectualProperty*IPadjustment+(1-IntellectualProperty-equipment-realestate-InventoriesTotal)]
 
 fwrite(pctsbyfin[financial==0,.(InventoriesTotal,realestate,equipment,IntellectualProperty,Inventoriesadjustment,RealEstateadjustment,Equipmentadjustment,IPadjustment,AllAssetsadjustment)],
-       'asset_pcts_and_Z1_weights.csv',col.names = F)
+       'IntermediateFiles/asset_pcts_and_Z1_weights.csv',col.names = F)
 
 shell('OptimalZ1Weights.py')
 
-optimalweights = fread('OptimalZ1Weights.csv')
+optimalweights = fread('IntermediateFiles/OptimalZ1Weights.csv')
 
 pctsbyfin = merge(pctsbyfin,optimalweights,by='calendaryear')
 pctsbyfin[,optimal_adjustment := InventoriesTotal*reweightedInventoriesadjustment+
@@ -335,45 +335,4 @@ dtcut[,monopolywealth := MktVal-AssetsTotal+IntangibleAssetsTotal+LiabilitiesTot
     ][,mwv := monopolywealth/MktVal]
 
 
-fwrite(dtcut, 'dtcut_for_spreadsheets.csv', quote = T)
-
-implied_r = 0.04
-tax_rate = 0.5
-
-companies_for_profits_tax_table = dtcut[grepl(paste0('COCA-COLA|PROCTER|AMERICAN\\ EXPRESS CO|ADOBE|APPLE INC|',
-                   'MICROSOFT|SALESFORCE|GENERAL MOTORS CO|AMERICAN ELECTRIC POWER|DOW INC|',
-                   'FORD MOTOR CO|CHEVRON CORP|JOHNSON & JOHNSON|INTL BUSINESS MACHINES CORP|^GENERAL ELECTRIC CO'),
-            conm, ignore.case = T) & calendaryear == 2019,
-      .(conm, DataYearFiscal, consol, GlobalCompanyKey, SalesTurnoverNet, SellingGeneralandAdministrativeExpense,
-        CostofGoodsSold, LiabilitiesTotal, AssetsTotal, IntangibleAssetsTotal, MktVal,
-        OperatingIncomeBeforeDepreciation, DepreciationandAmortization, CapitalExpenditures,
-        ResearchandDevelopmentExpense, Employees, PretaxIncome, PretaxIncomeDomestic, PretaxIncomeForeign,
-        InterestandRelatedExpenseTotal, IncomeTaxesFederal, IncomeTaxesForeign, IncomeTaxesTotal,
-        EarningsBeforeInterest, EarningsBeforeInterestandTaxes)
-      ][, profits := PretaxIncome - 
-          implied_r * (AssetsTotal - IntangibleAssetsTotal) + implied_r * LiabilitiesTotal
-         ][, profits_3_pct_r := PretaxIncome - 
-             0.03 * (AssetsTotal - IntangibleAssetsTotal) + 0.03 * LiabilitiesTotal
-           ][is.na(PretaxIncomeForeign), PretaxIncomeForeign := PretaxIncome - PretaxIncomeDomestic
-         ][, .(`Company Name` = conm, `Revenue` = round(SalesTurnoverNet),
-              `Accounting Profits` = round(PretaxIncome), `Profits due to Market Power, 3% Interest Rate` = round(profits_3_pct_r),
-              `Profits due to Market Power, 4% Interest Rate` = round(profits), `Profits Tax Liability` = round(pmax(tax_rate * profits, 0)),
-              Assets = AssetsTotal, Intangibles = IntangibleAssetsTotal, Liabilities = LiabilitiesTotal,
-              `R&D Expenses` = ResearchandDevelopmentExpense, `Reported U.S. Accounting Profits` = PretaxIncomeDomestic, `Reported non-U.S. Accounting Profits` = PretaxIncomeForeign,
-              `Current U.S. Corporate Tax Liability` = IncomeTaxesFederal, `Foreign Corporate Tax Liability` = IncomeTaxesForeign)
-         ]
-
-write.xlsx(setorder(companies_for_profits_tax_table, -`Profits Tax`)[], 'profits_tax_estimates.xlsx')
-
-
-dtcut[grepl(paste0('COCA-COLA|PROCTER|AMERICAN\\ EXPRESS CO|ADOBE|APPLE INC|',
-                   'MICROSOFT|SALESFORCE|GENERAL MOTORS CO|AMERICAN ELECTRIC POWER|DOW INC|',
-                   'FORD MOTOR CO|CHEVRON CORP|JOHNSON & JOHNSON|INTL BUSINESS MACHINES CORP|^GENERAL ELECTRIC CO'),
-            conm, ignore.case = T) & calendaryear == 2019,
-      .(conm, DataYearFiscal, consol, GlobalCompanyKey, SalesTurnoverNet, SellingGeneralandAdministrativeExpense,
-        CostofGoodsSold, LiabilitiesTotal, AssetsTotal, IntangibleAssetsTotal, MktVal,
-        OperatingIncomeBeforeDepreciation, DepreciationandAmortization, CapitalExpenditures,
-        ResearchandDevelopmentExpense, Employees, PretaxIncome, PretaxIncomeDomestic, PretaxIncomeForeign,
-        InterestandRelatedExpenseTotal, IncomeTaxesFederal, IncomeTaxesForeign, IncomeTaxesTotal, IncomeTaxesOther,
-        EarningsBeforeInterest, EarningsBeforeInterestandTaxes)
-      ][, .(conm, IncomeTaxesFederal, IncomeTaxesForeign, IncomeTaxesOther, IncomeTaxesTotal)]
+fwrite(dtcut, 'IntermediateFiles/dtcut_for_spreadsheets.csv', quote = T)

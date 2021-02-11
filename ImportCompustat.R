@@ -30,10 +30,16 @@ data.comp.funda = dbGetQuery(wrds,"select GVKEY, DATADATE, FYR, FYEAR, INDFMT, C
 
 
 
-data.comp.company = dbGetQuery(wrds,"select GVKEY, COSTAT, SIC, NAICS, CONM, FIC, LOC
+data.comp.company = dbGetQuery(wrds,"select CONM, GVKEY, ADD1, ADD2, ADD3, ADD4, ADDZIP, BUSDESC,
+                                            CIK, CITY, CONML, COSTAT, COUNTY, DLRSN, EIN, FAX, FIC,
+                                            FYRC, GGROUP, GIND, GSECTOR, GSUBIND, IDBFLAG, INCORP, LOC,
+                                            NAICS, PHONE, PRICAN, PRIROW, PRIUSA, SIC,
+                                            SPCINDCD, SPCSECCD, SPCSRC, STATE, STKO, WEBURL, DLDTE, IPODATE
                    from COMP.COMPANY")
 # where DATAFMT='STD' and CONSOL='C' and POPSRC='D'") #INDFMT='INDL' and STD is unrestatd data
 
+# data.comp.company = dbGetQuery(wrds,"select GVKEY, COSTAT, SIC, NAICS, CONM, FIC, LOC, IPODATE
+#                    from COMP.COMPANY")
 
 # AT, LT, SEQ, CEQ, PSTKL, PSTKRV, TXDITC, TXDB, ITCB,
 # REVT, COGS, XINT, XSGA, IB, TXDI, DVC, ACT, CHE, LCT,
@@ -60,7 +66,14 @@ setnames(data.kld.history,
            'Union Relations Concerns', 'Health and Safety Concerns',
            'Labor Management Concerns', 'Other Employee Relations Concerns', 'Total Number of Employee Relations Concerns'))
 
+data.crspa.ccmxpf_lnkhist = dbGetQuery(wrds,"select GVKEY, LPERMCO, LPERMNO, LINKDT
+                   from CRSP.CCMXPF_LNKHIST")
 
-saveRDS(data.table(data.comp.company),'companydata.rds')
-saveRDS(data.table(data.comp.funda),'fundamentalsannualdata.rds')
-saveRDS(data.table(data.kld.history),'KLD_stats_indicators.rds')
+data.comp.names = dbGetQuery(wrds,"select GVKEY, YEAR1, YEAR2, SIC, NAICS, CONM
+                   from COMP.NAMES")
+
+saveRDS(data.table(data.comp.company),'Data/Company Data (fixed identifying variables).rds')
+saveRDS(data.table(data.comp.funda),'Data/Annual Fundamentals (most variables, raw).rds')
+saveRDS(data.table(data.kld.history),'Data/KLD Data (Anticompetitive Practices).rds')
+saveRDS(data.table(data.crspa.ccmxpf_lnkhist),'Data/CRSP Compustat Link (gvkey to permno and permco).rds')
+saveRDS(data.table(data.comp.names),'Data/First and Last Year in Compustat.rds')

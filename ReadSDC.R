@@ -19,7 +19,7 @@ library(lubridate)
 
 rbind_and_fill = function(...) rbind(...,fill=T)
 
-files = list.files('7020MA', full.names = T)
+files = list.files('Data/7020MA', full.names = T)
 
 maxcol = 0
 yearlydata = foreach(file = files)%do%{
@@ -66,4 +66,4 @@ saveRDS(MA_data[`M&A Type` %in% c('Disclosed Dollar Value', 'Undisclosed Dollar 
                   # !`Acquiror Name` %in% c('Investor Group', 'Undisclosed Acquiror', 'Creditors',
                   #                         'Investor', 'Employee Stock Ownership Plan', 'Undisclosed Joint Venture',
                   #                         'Bondholders', 'Investors', 'Shareholders', 'Seeking Buyer', 'Preferred Shareholders')
-                ], 'SDC_data.rds')
+                ], 'Data/SDC_data.rds')

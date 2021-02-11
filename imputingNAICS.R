@@ -1,3 +1,4 @@
+library(data.table)
 library(foreach)
 library(iterators)
 library(stringr)
@@ -10,8 +11,8 @@ setwd("C:/Users/Nathan/Downloads/Compustat")
 rbind_and_fill = function(...) rbind(...,fill=T)
 
 getCharCols = function(x) {
-  jkl = readLines(x,n = 2)[2]
-  cols = strsplit(jkl,',')[[1]]
+  second_line = readLines(x,n = 2)[2]
+  cols = strsplit(second_line, ',')[[1]]
   grep('"',cols)
 }
 
@@ -19,7 +20,7 @@ fread_and_getCharCols = function(x) {
   fread(x, colClasses = list(character = getCharCols(x)))
 }
 
-dtcut = fread_and_getCharCols('dtcut_for_spreadsheets.csv')
+dtcut = fread_and_getCharCols('IntermediateFiles/dtcut_for_spreadsheets.csv')
 
 
 # companydata = readRDS('companydata.rds')
@@ -80,10 +81,10 @@ dtcut = fread_and_getCharCols('dtcut_for_spreadsheets.csv')
 # dtcut[,SIC:=as.integer(SIC)]
 # missingSICvalues = setdiff(100*unique(dtcut[,as.numeric(twodigitsic)]),SICtoNAICS_bls$sic)
 
-crosswalk97_02 = data.table(read_xls('1997_NAICS_to_2002_NAICS.xls', sheet = 2))[, NAICS97 := as.integer(NAICS97)]
-crosswalk02_07 = data.table(read_xls('2002_to_2007_NAICS.xls', skip = 2))
-crosswalk07_12 = data.table(read_xls('2007_to_2012_NAICS.xls', skip = 2))
-crosswalk12_17 = data.table(read_xlsx('2012_to_2017_NAICS.xlsx', skip = 2))
+crosswalk97_02 = data.table(read_xls('Data/NAICS Crosswalks/1997_NAICS_to_2002_NAICS.xls', sheet = 2))[, NAICS97 := as.integer(NAICS97)]
+crosswalk02_07 = data.table(read_xls('Data/NAICS Crosswalks/2002_to_2007_NAICS.xls', skip = 2))
+crosswalk07_12 = data.table(read_xls('Data/NAICS Crosswalks/2007_to_2012_NAICS.xls', skip = 2))
+crosswalk12_17 = data.table(read_xlsx('Data/NAICS Crosswalks/2012_to_2017_NAICS.xlsx', skip = 2))
 crosswalk97_17 = crosswalk97_02[crosswalk02_07, on = c(NAICS02 = '2002 NAICS Code'),
                                 `:=`(`2007 NAICS Code` = `i.2007 NAICS Code`, `2007 NAICS Title` = `i.2007 NAICS Title`)
                               ][crosswalk07_12, on = '2007 NAICS Code',
@@ -453,7 +454,7 @@ withThreeDigit[,realfirm:=is.na(NAICSadded)&is.na(ThreeDigitadded)]
 withThreeDigit[!is.na(three_digit_NAICS)&is.na(ThreeDigitadded),three_digit_ratio:=sic_ratio]
 withThreeDigit[!is.na(three_digit_NAICS),true_three_digit_NAICS:=three_digit_NAICS][is.na(three_digit_NAICS),true_three_digit_NAICS:=imputed_three_digit_NAICS]
 
-fwrite(withThreeDigit,'withThreeDigit.csv', quote = T)
+fwrite(withThreeDigit,'IntermediateFiles/withThreeDigit.csv', quote = T)
 
 withThreeDigit[true_NAICS%%1000!=0,four_digit_NAICS:=true_NAICS-true_NAICS%%100]
 missing_four_digit_NAICS = withThreeDigit[true_NAICS%%1000==0]
@@ -499,10 +500,10 @@ withFiveDigit[!is.na(five_digit_NAICS),true_five_digit_NAICS:=five_digit_NAICS][
 # Not actually sure that there's a missing values issue.
 # Might just be adding stuff like "management of companies and enterprises"
 # that never gets used to code firms in Compustat.
-six_2017 = data.table(read.xlsx('Six Digit NAICS Codes/6-digit_2017_Codes.xlsx'))[,1:2]
-six_2012 = data.table(read_xls('Six Digit NAICS Codes/6-digit_2012_Codes.xls'))
-six_2007 = data.table(read_xls('Six Digit NAICS Codes/naics07_6.xls'))
-filename = 'Six Digit NAICS Codes/naics_6_02.txt'
+six_2017 = data.table(read.xlsx('Data/Six Digit NAICS Codes/6-digit_2017_Codes.xlsx'))[,1:2]
+six_2012 = data.table(read_xls('Data/Six Digit NAICS Codes/6-digit_2012_Codes.xls'))
+six_2007 = data.table(read_xls('Data/Six Digit NAICS Codes/naics07_6.xls'))
+filename = 'Data/Six Digit NAICS Codes/naics_6_02.txt'
 six_2002 = data.table(read_fwf(filename,
                                fwf_empty(filename,
                                          col_names = c('Code','2002 NAICS Title')
@@ -560,4 +561,4 @@ withSixDigit[!is.na(six_digit_NAICS)&is.na(SixDigitadded), six_digit_ratio := fi
 withSixDigit[!is.na(six_digit_NAICS),true_six_digit_NAICS:=six_digit_NAICS
            ][is.na(six_digit_NAICS),true_six_digit_NAICS:=imputed_six_digit_NAICS]
 
-fwrite(withSixDigit,'withSixDigit.csv', quote = T)
+fwrite(withSixDigit,'IntermediateFiles/withSixDigit.csv', quote = T)

@@ -1,7 +1,7 @@
 library(openxlsx)
 library(foreach)
 
-output_table = data.table(read.xlsx('IxI_TR_2007_2012_PRO_DET.xlsx',3,startRow = 5))
+output_table = data.table(read.xlsx('Data/IxI_TR_2007_2012_PRO_DET.xlsx',3,startRow = 5))
 
 input_required_table = transpose(output_table[,3:ncol(output_table)])
 setnames(input_required_table,output_table$Code)
@@ -16,7 +16,7 @@ it_cols = names(input_required_table)[substr(names(input_required_table),1,3) %i
 input_required_table[, it_input_elasticity := rowSums(.SD, na.rm=T), .SDcols = it_cols]
 
 
-BEA_industries_to_NAICS = data.table(read.xlsx('Use_SUT_Framework_2007_2012_DET.xlsx',2,startRow = 5))
+BEA_industries_to_NAICS = data.table(read.xlsx('Data/Use_SUT_Framework_2007_2012_DET.xlsx',2,startRow = 5))
 setnames(BEA_industries_to_NAICS, c('Detail', 'Related.2012.NAICS.Codes'), c('BEA_Code', 'NAICS_Code'))
 BEA_industries_to_NAICS = BEA_industries_to_NAICS[
   !is.na(BEA_Code) & !is.na(NAICS_Code) &
@@ -63,5 +63,5 @@ BEA_industries_to_NAICS[input_required_table[, .(BEA_Code, it_input_elasticity)]
                         it_input_elasticity := i.it_input_elasticity]
 
 fwrite(BEA_industries_to_NAICS[,.(BEA_Code, NAICS_Code, NAICSmin, NAICSmax, it_input_elasticity)],
-       'input_output_IT.csv',
+       'IntermediateFiles/input_output_IT.csv',
        quote = T)

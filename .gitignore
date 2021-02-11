@@ -1,7 +1,11 @@
 *.xlsx
+*.xls
 *.rds
 *.zip
 *.csv
 *.xlsm
 *unformatted.py
+*.tsv
+*.dta
+*.txt
 .Rhistory

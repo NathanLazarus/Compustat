@@ -54,7 +54,7 @@ date_midpoint = function(start, end) {
   start + (end - start)/2
 }
 citations_categories_and_assignees[is.na(grant_date), grant_date_by_midpoint_of_patent_ids := date_midpoint(previous_patent_grant_date,next_patent_grant_date)]
-YearsAndPatentNumbers = fread('YearsAndPatentNumbers.csv')
+YearsAndPatentNumbers = fread('Data/YearsAndPatentNumbers.csv')
 setnames(YearsAndPatentNumbers, 'Patent_Number', 'first_patent'
          )[, last_patent := shift(first_patent, type = 'lead') - 1]
 
@@ -104,7 +104,7 @@ Autor_patent_match[citations_categories_and_assignees, on = 'patent_id',
                         software = i.software,
                         app_date = i.app_date)]
 
-Compustat_dt = fread_and_getCharCols('raw_dt.csv')
+Compustat_dt = fread_and_getCharCols('IntermediateFiles/raw_dt.csv')
 Autor_patent_match[, GlobalCompanyKey := as.numeric(gvkey)]
 setkey(Compustat_dt, GlobalCompanyKey)
 setkey(Autor_patent_match, GlobalCompanyKey)
@@ -136,7 +136,7 @@ all_Autor_matches[is.na(appyear), appyear := year(app_date)]
 
 unmatched = citations_categories_and_assignees[!all_Autor_matches, on ='patent_id']
 
-SDC_MA_data = readRDS('SDC_data.rds')
+SDC_MA_data = readRDS('Data/SDC_data.rds')
 # SDC_MA_data[all_Autor_matches, on = c(`Target CUSIP` = 'cusip6'),
 #             `:=`(patent_id = i.patent_id,
 #                  software = i.software,
@@ -375,7 +375,7 @@ final = patent_ownership_by_year[, .(all_patents = sum(citation_weighted * remai
 # test[, cusip := `Acquiror Ultimate Parent CUSIP`]
 # merge(test, patent_ownership_by_year, all.x = T, all.y = T, by = 'cusip')
 
-saveRDS(final, 'patent_data_for_analysis.RDS')
+saveRDS(final, 'IntermediateFiles/patent_data_for_analysis.RDS')
 
 
 
@@ -420,4 +420,4 @@ saveRDS(final, 'patent_data_for_analysis.RDS')
 #                          org_norm_name %in% SDC_MA_data$`Target Full Name`]
 # 
 # howsthis = merge(unmatched2, SDC_MA_data, all.x = T, all.y = F, by.x = 'org_norm_name', by.y = 'Target Name')
-# # fwrite(firm_software_patenting,'firm_software_patenting.csv', quote = T)
+# # fwrite(firm_software_patenting,'IntermediateFiles/firm_software_patenting.csv', quote = T)

@@ -6,7 +6,7 @@ from csv import reader
 solutions = np.array([]).reshape(0, 4)
 
 with open(
-    "C:/Users/Nathan/Downloads/Compustat/asset_pcts_and_Z1_weights.csv", "r"
+    "C:/Users/Nathan/Downloads/Compustat/IntermediateFiles/asset_pcts_and_Z1_weights.csv", "r"
 ) as f:
     csv_reader = reader(f)
 
@@ -48,7 +48,7 @@ with open(
 weights_to_write = np.c_[np.array(range(solutions.shape[0])) + 1950, solutions]
 
 np.savetxt(
-    "OptimalZ1Weights.csv",
+    "C:/Users/Nathan/Downloads/Compustat/IntermediateFiles/OptimalZ1Weights.csv",
     weights_to_write,
     delimiter=",",
     comments="",

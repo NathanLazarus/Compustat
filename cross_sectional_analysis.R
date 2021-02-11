@@ -246,14 +246,11 @@ data[is.na(software_patents_rolling_5), software_patents_rolling_5 := 0]
 specifications = data.table(merge(ivs,dvs,allow.cartesian = T))
 setnames(specifications,c('iv','dv'))
 
-GDP_deflator = fread('GDPDEF (1).csv')
-GDP_deflator[, calendaryear := year(DATE)]
-Inv_deflator = fread('Investment Deflator FRED.csv')
-Inv_deflator[, calendaryear := year(DATE)]
+price_deflators = readRDS('Data/FRED Data (Inflation and Interest Rates).rds'
+                        )[, .(gdpdef_level, investmentPrice_level, calendaryear = year)]
 data[AssetsTotal < 0, AssetsTotal := 0]
 data[totalwealth < 0, totalwealth := 0]
-data[GDP_deflator, on = 'calendaryear', gdp_def := i.GDPDEF]
-data[Inv_deflator, on = 'calendaryear', InvDef := i.InvDef]
+data[price_deflators, on = 'calendaryear', `:=`(gdp_def = i.GDPDEF, InvDef = i.InvDef)]
 data[, `:=`(software_patents_assets = software_patents / (0.01 + AssetsTotal/InvDef),
             all_patents_assets = all_patents / (0.01 + AssetsTotal/InvDef))]
 

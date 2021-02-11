@@ -1,8 +1,10 @@
 setwd("C:/Users/Nathan/Downloads/Compustat")
 
+library(fredr)
+
 getCharCols = function(x) {
-  jkl = readLines(x,n = 2)[2]
-  cols = strsplit(jkl,',')[[1]]
+  second_line = readLines(x,n = 2)[2]
+  cols = strsplit(second_line, ',')[[1]]
   grep('"',cols)
 }
 
@@ -12,21 +14,20 @@ fread_and_getCharCols = function(x) {
 
 withSixDigit = fread_and_getCharCols('withSixDigit.csv')
 
-ppi = fread('ppi.csv')
-ppi[,ppi_inflation := PPI/shift(PPI) - 1]
-capitalcost = fread('FedFundsAndInflation.csv')
-capitalcost[, year := year(Date)]
-capitalcost[, real_interest := FedFundsRate - Inflation]
-capitalcost[ppi, on = 'Date', ppi := i.ppi_inflation]
-capitalcost[, real_interest_ppi := FedFundsRate - (100 * ppi)]
+capitalcost = readRDS('Data/FRED Data (Inflation and Interest Rates).rds')
+capitalcost[, real_interest := FedFundsRate - cpi_inflation]
+capitalcost[, real_interest_ppi := FedFundsRate - ppi_inflation]
 capitalcost[, usercost := (12 + real_interest) / 100]
 capitalcost[, usercost_ppi := (12 + real_interest_ppi) / 100]
 
+production_function_coefs = setnames(data.table(read_dta('theta_W_s_window.dta')),
+                                     c('ind2d', 'theta_WI1_ct'), c('true_two_digit_NAICS', 'theta_v'))
 withSixDigit[capitalcost, on = c(calendaryear = 'year'), usercost := i.usercost]
 withSixDigit[, kexp := PropertyPlantandEquipmentTotalGross * usercost]
-withSixDigit[, DLE_markup := SalesTurnoverNet / (CostofGoodsSold + kexp)]
-withSixDigit[, Traina_markup := SalesTurnoverNet / (CostofGoodsSold + SellingGeneralandAdministrativeExpense + kexp)]
+withSixDigit[, DLE_markup := theta_v * SalesTurnoverNet / CostofGoodsSold]
+theta_vx = 0.95
+withSixDigit[, Traina_markup := theta_vx * SalesTurnoverNet / (CostofGoodsSold + SellingGeneralandAdministrativeExpense)]
 withSixDigit[, DLE_profit := (SalesTurnoverNet - CostofGoodsSold -
-                                 SellingGeneralandAdministrativeExpense - kexp) / SalesTurnoverNet]
+                                 SellingGeneralandAdministrativeExpense) / SalesTurnoverNet]
 
 fwrite(withSixDigit, 'withMarkups.csv', quote = T)

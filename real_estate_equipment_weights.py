@@ -6,7 +6,7 @@ from csv import reader
 solutions = np.array([]).reshape(0, 3)
 
 allyears = np.genfromtxt(
-    "C:/Users/Nathan/Downloads/Compustat/real_estate_equipment_to_weight.csv",
+    "C:/Users/Nathan/Downloads/Compustat/IntermediateFiles/real_estate_equipment_to_weight.csv",
     delimiter=",",
     names=True,
 )
@@ -60,7 +60,7 @@ for yr in np.unique(allyears["calendaryear"]):
     )
 
 numpy.savetxt(
-    "Optimal_real_estate_equipment_Weights.csv",
+    "C:/Users/Nathan/Downloads/Compustat/IntermediateFiles/Optimal_real_estate_equipment_Weights.csv",
     solutions,
     delimiter=",",
     comments="",
