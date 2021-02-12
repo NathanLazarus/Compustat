@@ -1,5 +1,7 @@
 library(data.table)
 library(foreach)
+library(iterators)
+library(snow)
 library(doSNOW)
 library(stringr)
 
@@ -10,16 +12,37 @@ rbind_and_fill = function(...) rbind(...,fill=T)
 #This leaves financial firms and firms with missing market values in the data
 
 setwd("C:/Users/Nathan/Downloads/Compustat")
-companydata=readRDS('Data/Company Data (fixed identifying variables).rds')
-dt = readRDS('Data/Annual Fundamentals (most variables, raw).rds')
-# write_dta(companydata[dt[, c('year1', 'year2') := .(min(fyear), max(fyear)), gvkey], on = 'gvkey', `:=`(year1 = i.year1, year2 = i.year2)],
-#           'C:/Users/Nathan/Downloads/Programs-20201123T183843Z-001/Programs/compustat_names.dta')
-# write_dta(dt, 'C:/Users/Nathan/Downloads/Programs-20201123T183843Z-001/Programs/compustat_data.dta')
+companyData = readRDS('Data/Company Data (fixed identifying variables).rds')
+fundamentalsData = readRDS('Data/Annual Fundamentals (most variables, raw).rds')
+
 
 na0 = function(x) ifelse(!is.na(x),x,0)
 
+merge_and_reconcile = function(prioritized_data, deprioritized_data, join_cols, all_prioritized = T, all_deprioritized = T) {
+  merged_wide_with_duplicates = merge(prioritized_data, deprioritized_data, by = join_cols,
+                                      all.x = all_prioritized, all.y = all_deprioritized,
+                                      suffixes = c('.from_prioritized', '.from_deprioritized'))
+  
+  dupe_cols = gsub('\\.from_prioritized', '', grep('\\.from_prioritized', names(merged_wide_with_duplicates), value = T))
+  non_duplicated_cols = names(merged_wide_with_duplicates)[!grepl('\\.from_prioritized|\\.from_deprioritized', names(merged_wide_with_duplicates))]
+  
+  foreach(var = dupe_cols)%do%{
+    var_prioritized = paste0(var, '.from_prioritized')
+    var_deprioritized = paste0(var, '.from_deprioritized')
+    merged_wide_with_duplicates[, (var) := fifelse(!is.na(get(var_prioritized)) & get(var_prioritized) != 0, get(var_prioritized),
+                                                   fifelse(!is.na(get(var_prioritized)) & get(var_prioritized) == 0,
+                                                           fifelse(!is.na(get(var_deprioritized)) & get(var_deprioritized) != 0, get(var_deprioritized), get(var_prioritized)),
+                                                           fifelse(!is.na(get(var_deprioritized)), get(var_deprioritized), get(var_prioritized))))]
+    NULL
+  }
+  
+  return(merged_wide_with_duplicates[, c(non_duplicated_cols, dupe_cols), with = F])
+  
+}
+
+
 # library(haven)
-# dt_deloecker_eeckhout = dt[companydata, on='gvkey'
+# dt_deloecker_eeckhout = fundamentalsData[companyData, on='gvkey'
 #                          ][datafmt == 'STD' & consol == 'C' &
 #                              between(datadate, as.Date('1955-01-01'), as.Date('2016-12-31'))]
 # 
@@ -29,37 +52,113 @@ na0 = function(x) ifelse(!is.na(x),x,0)
 #                                 xsga, costat, fic, prcc_c, mkvalt, prcc_f, naics)],
 #           'C:/Users/Nathan/Downloads/DeloeckerEeckhout_v3/data/datafile.dta')
 
+# TFP
+# write_dta(companyData[fundamentalsData[, c('year1', 'year2') := .(min(fyear), max(fyear)), gvkey], on = 'gvkey', `:=`(year1 = i.year1, year2 = i.year2)],
+#           'C:/Users/Nathan/Downloads/Programs-20201123T183843Z-001/Programs/compustat_names.dta')
+# write_dta(fundamentalsData, 'C:/Users/Nathan/Downloads/Programs-20201123T183843Z-001/Programs/compustat_data.dta')
 
-companydata[, sic := as.numeric(sic)]
-companydata[, naics := as.numeric(naics)]
-varnames = fread('Data/Variable Names and Descriptions.csv',header=F)
-setnames(varnames,c('combined','varname','varfull'))
-varnames[,lowervarname := tolower(varname)]
-merge = varnames[data.table(lowervarname =tolower(names(dt))),on = 'lowervarname',nomatch = 0]
-merge[, UpperCamel := gsub("[^[:alnum:]]","",varfull)]
-setnames(dt,merge$lowervarname,merge$UpperCamel)
 
-dt[companydata,on=c(GlobalCompanyKey='gvkey'),
-   `:=`(currentsic=i.sic,currentnaics=i.naics,loc=i.loc)]
-dt[, SIC:=StandardIndustrialClassificationHistorical]
-dt[is.na(SIC),SIC:=currentsic]
-dt[, NAICS:=NorthAmericaIndustrialClassificationSystemHistorical]
-dt[is.na(NAICS),NAICS:=currentnaics]
+companyData[, sic := as.numeric(sic)]
+companyData[, naics := as.numeric(naics)]
+varnames = fread('Data/Variable Names and Descriptions.csv', header = F)
 
-dt[, calendaryear:=year(datadate)]
-dt[, cusip6 := substr(cusip, 1, 6)]
+setnames(varnames, c('combined','shortVarName','fullDescriptiveVarName'))
+varnames[, shortVarName := tolower(shortVarName)]
+descriptive_variable_names_for_fundamentalsData = data.table(shortVarName = tolower(names(fundamentalsData))
+                                                           )[varnames, on = 'shortVarName', fullDescriptiveVarName := i.fullDescriptiveVarName
+                                                           ][!is.na(fullDescriptiveVarName)
+                                                           ][, cleanDescriptiveVarName := gsub("[^[:alnum:]]", "", fullDescriptiveVarName)]
+setnames(fundamentalsData,
+         descriptive_variable_names_for_fundamentalsData[, shortVarName],
+         descriptive_variable_names_for_fundamentalsData[, cleanDescriptiveVarName])
+
+descriptive_variable_names_for_companyData = data.table(shortVarName = tolower(names(companyData))
+                                                      )[varnames, on = 'shortVarName', fullDescriptiveVarName := i.fullDescriptiveVarName
+                                                      ][!is.na(fullDescriptiveVarName)
+                                                      ][, cleanDescriptiveVarName := gsub("[^[:alnum:]]", "", fullDescriptiveVarName)]
+setnames(companyData,
+         descriptive_variable_names_for_companyData[, shortVarName],
+         descriptive_variable_names_for_companyData[, cleanDescriptiveVarName])
+
+# setnames(varnames, c('combined','varname','varfull'))
+# varnames[,lowervarname := tolower(varname)]
+# merge = varnames[data.table(lowervarname = tolower(names(fundamentalsData))), on = 'lowervarname', nomatch = 0]
+# merge[, UpperCamel := gsub("[^[:alnum:]]", "", varfull)]
+# setnames(fundamentalsData, merge$lowervarname, merge$UpperCamel)
+
+fundamentalsData[companyData, on = 'GlobalCompanyKey',
+   `:=`(currentsic = i.sic, currentnaics = i.naics, loc = i.loc)]
+fundamentalsData[, SIC := StandardIndustrialClassificationHistorical]
+fundamentalsData[is.na(SIC),SIC := currentsic]
+fundamentalsData[, NAICS := NorthAmericaIndustrialClassificationSystemHistorical]
+fundamentalsData[is.na(NAICS),NAICS := currentnaics]
+
+fundamentalsData[, calendaryear := year(datadate)]
+fundamentalsData[, cusip6 := substr(cusip, 1, 6)]
 
 KLD_data_clean = readRDS('IntermediateFiles/KLD Data Clean.rds')
 
-dt[KLD_data_clean, on = c('cusip6', calendaryear = 'year'), `:=`(
+fundamentalsData[KLD_data_clean, on = c('cusip6', calendaryear = 'year'), `:=`(
   laborStrength = i.laborStrength, laborConcern = i.laborConcern,
   laborRelations = i.laborRelations, `Anticompetitive Practices` = `i.Anticompetitive Practices`
 )]
 
-fwrite(dt,'IntermediateFiles/raw_dt.csv')
+fwrite(fundamentalsData,'IntermediateFiles/raw_dt.csv')
+
+tic()
+
+fundamentalsData = fundamentalsData[consol == 'C'] #remove subsidiaries
+
+with_restatements = merge_and_reconcile(fundamentalsData[datafmt == 'SUMM_STD' & indfmt == 'INDL'],
+                                        fundamentalsData[datafmt == 'STD' & indfmt == 'INDL'],
+                                        join_cols = c('GlobalCompanyKey', 'datadate'),
+                                        all_prioritized = F,
+                                        all_deprioritized = T)
+
+with_financial_format_statements = merge_and_reconcile(with_restatements,
+                                                       fundamentalsData[datafmt == 'STD' & indfmt == 'FS'],
+                                                       join_cols = c('GlobalCompanyKey', 'datadate'))
+
+# asdf = merge(fundamentalsData[datafmt == 'SUMM_STD' & indfmt == 'INDL'], fundamentalsData[datafmt == 'STD' & indfmt == 'INDL'],
+#              by = c('GlobalCompanyKey', 'datadate'), all.x = F, all.y = T,
+#              #important to not include SUMM_STD entries when there's no corresponding STD (duplicative after a merger or non-public)
+#              suffixes = c('.summstd', '.std'))
+
+# join_cols = c('GlobalCompanyKey', 'datadate')
+# dupe_cols = gsub('.summstd', '', grep('.summstd', names(asdf), value = T))
+
+# foreach(var = dupe_cols)%do%{
+#   var_prioritized = paste0(var, '.summstd')
+#   var_deprioritized = paste0(var, '.std')
+#   asdf[, (var) := fifelse(!is.na(get(var_prioritized)) & get(var_prioritized) != 0, get(var_prioritized),
+#                                                   fifelse(!is.na(get(var_prioritized)) & get(var_prioritized) == 0, fifelse(!is.na(get(var_deprioritized)) & get(var_deprioritized) != 0, get(var_deprioritized), get(var_prioritized)),
+#                                                           fifelse(!is.na(get(var_deprioritized)), get(var_deprioritized), get(var_prioritized))))]
+#   NULL
+# }
 
 
-dtcut = dt[curcd=='USD'&!is.na(curcd)
+# jkl = merge(asdf[, c(join_cols, dupe_cols), with = F], fundamentalsData[datafmt == 'STD' & indfmt == 'FS'],
+#              by = c('GlobalCompanyKey', 'datadate'), all.x = T, all.y = T,
+#              suffixes = c('.indl', '.fs'))
+
+# join_cols = c('GlobalCompanyKey', 'datadate')
+# dupe_cols = gsub('.indl', '', grep('.indl', names(jkl), value = T))
+
+# foreach(var = dupe_cols)%do%{
+#   var_prioritized = paste0(var, '.indl')
+#   var_deprioritized = paste0(var, '.fs')
+#   jkl[, (var) := fifelse(!is.na(get(var_prioritized)) & get(var_prioritized) != 0, get(var_prioritized),
+#                                                   fifelse(!is.na(get(var_prioritized)) & get(var_prioritized) == 0, fifelse(!is.na(get(var_deprioritized)) & get(var_deprioritized) != 0, get(var_deprioritized), get(var_prioritized)),
+#                                                           fifelse(!is.na(get(var_deprioritized)), get(var_deprioritized), get(var_prioritized))))]
+#   NULL
+# }
+
+# good = jkl[, c(join_cols, dupe_cols), with = F]
+toc()
+
+testdt = data.table(AssetsTotal.x = rep(c(0,1,NA), times = 3), AssetsTotal.y = rep(c(0,1,NA), each = 3))
+
+dtcut = fundamentalsData[curcd=='USD'&!is.na(curcd)
            &loc=='USA'
            &consol=='C'
            &datafmt=='STD'
@@ -67,8 +166,12 @@ dtcut = dt[curcd=='USD'&!is.na(curcd)
            &!is.na(SIC)] #the only firms missing SIC codes are firms that have yet to IPO. I don't understand the connection. They have NAICS codes.
 
 dtcut = dtcut[dtcut[,.I[sum(indfmt=='INDL')==0|indfmt=='INDL'],.(GlobalCompanyKey,DataYearFiscal)]$V1] #I use indfmt FS and INDL and then drop FS reports when they're duplicated
+
+dtcut = with_financial_format_statements[curcd=='USD'& !is.na(curcd) & loc == 'USA' & AssetsTotal!=0 & !is.na(SIC)]
+nrow(with_financial_format_statements[is.na(AssetsTotal)])
+#the only firms missing SIC codes are firms that have yet to IPO. I don't understand the connection. They have NAICS codes.
 dtcut[conm=='DELHAIZE AMERICA INC'&calendaryear==2001&CommonSharesOutstanding==91125.785,
-      CommonSharesOutstanding:=dtcut[conm=='DELHAIZE AMERICA INC'&calendaryear==2000]$CommonSharesOutstanding]
+      CommonSharesOutstanding := dtcut[conm=='DELHAIZE AMERICA INC'&calendaryear==2000]$CommonSharesOutstanding]
 dtcut[,MktVal:=MarketValueTotalFiscal]
 dtcut[is.na(MktVal),MktVal:=PriceCloseAnnualFiscal*CommonSharesOutstanding]
 dtcut[is.na(MktVal),MktVal:=PriceCloseAnnualCalendar*CommonSharesOutstanding]
@@ -100,7 +203,7 @@ dtcut_without_utilities = dtcut[SIC %/% 100 == 49 &
 
 # duplicate_checking_data = merge(
 #   dtcut_without_utilities,
-#   companydata[, .SD, .SDcols = !c('conm', 'costat', 'loc',
+#   companyData[, .SD, .SDcols = !c('conm', 'costat', 'loc',
 #                                   'dlrsn', 'dldte', 'prican', 'prirow', 'priusa', 'idbflag', 'fyrc')],
 #   by.x = 'GlobalCompanyKey',
 #   by.y = 'gvkey')[, .SD, .SDcols = !c('curcd', 'currentsic', 'currentnaics', 'SIC', 'NAICS')

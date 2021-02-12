@@ -21,10 +21,10 @@ fread_and_getCharCols = function(x) {
 
 
 withThreeDigit = fread_and_getCharCols('Data/withThreeDigit.csv')
-went_public_data = merge(readRDS('Data/firstyears.rds'), readRDS('Data/companydata.rds'), all.x = T, all.y = T)
+went_public_data = merge(readRDS('Data/First and Last Year in Compustat.rds'), readRDS('Data/companydata.rds'), all.x = T, all.y = T)
 
 firm_ages = data.table(read.xlsx('Data/Firm Founding Dates.xlsx'))[Founding != -99][, cusip6 := substr(CUSIP, 1, 6)]
-gvkey_to_permno = unique(readRDS('Data/gvkey_permno_link.rds'), by = c('gvkey', 'lpermno'))[, PERM := as.character(lpermno)][!is.na(PERM)]
+gvkey_to_permno = unique(readRDS('Data/CRSP Compustat Link (gvkey to permno and permco).rds'), by = c('gvkey', 'lpermno'))[, PERM := as.character(lpermno)][!is.na(PERM)]
 
 my_firm_ages = data.table(read.xlsx('Data/My Hand Coded Founding Dates.xlsx'))
 

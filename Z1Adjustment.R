@@ -101,11 +101,11 @@ setkey(optimal_real_estate_weights,calendaryear,twodigitsic)
 setkey(dtcut,calendaryear,twodigitsic)
 dtcut[optimal_real_estate_weights,uncategorized_real_estate_share := i.uncategorized_real_estate_share]
 
-dtcut[,realestate := na0(realestate)+na0(PPEuncategorized*uncategorized_real_estate_share)
-      ][,equipment := na0(equipment)+na0(PPEuncategorized*(1-uncategorized_real_estate_share))]
+dtcut[,realestate := na0(realestate)+na0(PPEuncategorized * uncategorized_real_estate_share)
+      ][,equipment := na0(equipment)+na0(PPEuncategorized * (1-uncategorized_real_estate_share))]
 
 
-dtcut[IntangibleAssetsTotal==0 & Goodwill>0,`:=`(IntangibleAssetsTotal=Goodwill,AssetsOther=AssetsOther-Goodwill)]
+dtcut[IntangibleAssetsTotal==0 & Goodwill>0,`:=`(IntangibleAssetsTotal = Goodwill, AssetsOther = AssetsOther - Goodwill)]
 dtcut[,goodwillpct := Goodwill/IntangibleAssetsTotal]
 # dtcut[,sum(Goodwill,na.rm = T)/sum(IntangibleAssetsTotal*!is.na(Goodwill),na.rm = T),.(calendaryear,twodigitsic)]
 dtcut[,stryear_1988_or_later := factor(pmax(calendaryear,1988))]
@@ -318,7 +318,7 @@ eval(parse(text=paste0('dtcut[,AssetsTotal := sum(',paste0(assetclasscols,collap
 dtcut[,IntangibleAssetsTotal := sum(IntellectualProperty,Goodwill,na.rm = T),by=1:nrow(dtcut)]
 
 
-dtcut[,liabilitiesadded := +is.na(LiabilitiesTotal)]
+# dtcut[,liabilitiesadded := +is.na(LiabilitiesTotal)]
 dtcut[,liabilityratio := LiabilitiesTotal/AssetsTotal]
 dtcut_no_NA_liabilities = dtcut[!is.na(LiabilitiesTotal)]
 setkey(dtcut,GlobalCompanyKey,calendaryear)
