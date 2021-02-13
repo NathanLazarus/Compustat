@@ -13,5 +13,7 @@ library(readxl)
 library(haven)
 library(gtools)
 import::from(lubridate, 'fast_strptime', 'mdy')
-# library(lubridate)
-# library(import)
+
+# the python scripts depend on casadi and numpy
+# I should learn how to use reticulate, renv::use_python
+# and be able to package those dependencies with everything.

@@ -1,12 +1,3 @@
-library(data.table)
-library(foreach)
-library(openxlsx)
-library(ggplot2)
-library(iterators)
-
-
-setwd("C:/Users/Nathan/Downloads/Compustat")
-
 rbind_and_fill = function(...) rbind(...,fill=T)
 
 getCharCols = function(x) {

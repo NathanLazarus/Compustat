@@ -1,10 +1,3 @@
-library(data.table)
-library(openxlsx)
-library(readxl)
-library(foreach)
-library(iterators)
-library(stringr)
-
 getCharCols = function(x) {
   jkl = readLines(x,n = 2)[2]
   cols = strsplit(jkl,',')[[1]]
@@ -17,7 +10,6 @@ fread_and_getCharCols = function(x) {
   fread(x, colClasses = list(character = getCharCols(x)))
 }
 
-setwd("C:/Users/Nathan/Downloads/Compustat")
 withSixDigit = fread_and_getCharCols('IntermediateFiles/withMarkups.csv')
 
 # withSixDigit[,monopolywealth:=monopolywealth*six_digit_ratio]

@@ -1,9 +1,5 @@
-library(data.table)
-library(fredr)
-
 FREDkey = fread('FRED APIkey.csv')
 fredr_set_key(FREDkey$APIkey)
-
 
 
 fedfunds =

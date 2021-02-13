@@ -1,13 +1,3 @@
-library(data.table)
-library(foreach)
-library(iterators)
-library(stringr)
-library(openxlsx)
-library(readxl)
-library(readr)
-
-setwd("C:/Users/Nathan/Downloads/Compustat")
-
 rbind_and_fill = function(...) rbind(...,fill=T)
 
 getCharCols = function(x) {

@@ -1,11 +1,4 @@
-#TFP to Psi
-setwd('C:/Users/Nathan/Downloads/Compustat')
-
-library(data.table)
-library(foreach)
-library(openxlsx)
-library(ggplot2)
-library(Hmisc)
+#Getting calibrated values for "psi" using firm TFP risk
 
 rbind_and_fill = function(...) rbind(...,fill=T)
 

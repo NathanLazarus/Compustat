@@ -1,10 +1,3 @@
-library(data.table)
-library(RPostgres)
-library(openxlsx)
-
-
-setwd("C:/Users/Nathan/Downloads/Compustat")
-
 login_info = fread('CompustatPassword.csv')
 
 wrds = dbConnect(Postgres(),

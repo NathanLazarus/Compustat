@@ -1,10 +1,3 @@
-setwd("C:/Users/Nathan/Downloads/Compustat")
-library(foreach)
-library(iterators)
-library(snow)
-library(doSNOW)
-
-
 getCharCols = function(x) {
   second_line = readLines(x,n = 2)[2]
   cols = strsplit(second_line, ',')[[1]]
