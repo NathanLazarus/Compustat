@@ -1,6 +1,5 @@
-library(data.table)
-library(openxlsx)
-
+# takes the BEA data on IT capital by industry and
+# puts it into a usable, though obnoxiously wide, format
 
 aggregate_capital = 
   data.table(read.xlsx('Data/cap_details.xlsx',sheet = 'DATA')

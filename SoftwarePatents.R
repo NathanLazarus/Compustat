@@ -1,6 +1,3 @@
-library(data.table)
-library(lubridate)
-
 getCharCols = function(x) {
   jkl = readLines(x,n = 2)[2]
   cols = strsplit(jkl,',')[[1]]
@@ -368,7 +365,7 @@ patent_ownership_by_year[changed_hands_in_merger, on = 'patent_id', owner := i.o
 
 # patent_ownership_by_year = patent_ownership_by_year[!is.na(possession_year)]
 # patent_ownership_by_year[is.na(accurate_cusip), accurate_cusip := cusip6]
-final = patent_ownership_by_year[, .(all_patents = sum(citation_weighted * remaining_value, na.rm =T),
+final = patent_ownership_by_year[, .(all_patents = sum(citation_weighted * remaining_value, na.rm = T),
                 software_patents = sum(citation_weighted * software * remaining_value, na.rm = T)),
             .(possession_year, owner)]
 # test = patent_ownership_by_year

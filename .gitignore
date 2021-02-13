@@ -9,3 +9,4 @@
 *.dta
 *.txt
 .Rhistory
+.Rproj.user

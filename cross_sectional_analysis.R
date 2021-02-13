@@ -1,32 +1,3 @@
-library(data.table)
-library(foreach)
-library(iterators)
-library(snow)
-library(doSNOW)
-library(Hmisc)
-library(plm)
-library(multiwayvcov)
-library(lmtest)
-library(stringr)
-library(openxlsx)
-library(readxl)
-library(RCurl)
-library(gtools)
-library(ggplot2)
-
-# import the function from repository
-url_robust = "https://raw.githubusercontent.com/IsidoreBeautrelet/economictheoryblog/master/robust_summary.R"
-eval(parse(text = getURL(url_robust, ssl.verifypeer = FALSE)),
-     envir=.GlobalEnv)
-
-
-rbind_and_fill = function(...) rbind(...,fill=T)
-
-z_score = function(x, weights){
-  (x - wtd.mean(x, weights = weights))/sqrt(wtd.var(x, weights = weights))
-}
-
-
 getCharCols = function(x) {
   jkl = readLines(x,n = 2)[2]
   cols = strsplit(jkl,',')[[1]]
@@ -37,8 +8,20 @@ fread_and_getCharCols = function(x) {
   fread(x, colClasses = list(character = getCharCols(x)))
 }
 
+rbind_and_fill = function(...) rbind(...,fill=T)
 
-setwd("C:/Users/Nathan/Downloads/Compustat")
+#something might be wrong with this standard error clustering script
+source('src/robust_summary.R')
+
+# I don't think I need these packages anymore, but at one point I used them here.
+# library(plm)
+# library(multiwayvcov)
+# library(lmtest)
+
+z_score = function(x, weights){
+  (x - wtd.mean(x, weights = weights))/sqrt(wtd.var(x, weights = weights))
+}
+
 data = fread_and_getCharCols('foranalysis.csv')
 
 # SDC_MA_data = readRDS('SDC_data.rds')

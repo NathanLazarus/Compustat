@@ -1,22 +1,13 @@
-library(data.table)
-library(foreach)
-library(iterators)
-library(snow)
-library(doSNOW)
-library(stringr)
-
 rbind_and_fill = function(...) rbind(...,fill=T)
+
+na0 = function(x) ifelse(!is.na(x),x,0)
 
 #TRANE CO, TRANE INC? Duplicates?
 
 #This leaves financial firms and firms with missing market values in the data
 
-setwd("C:/Users/Nathan/Downloads/Compustat")
 companyData = readRDS('Data/Company Data (fixed identifying variables).rds')
 fundamentalsData = readRDS('Data/Annual Fundamentals (most variables, raw).rds')
-
-
-na0 = function(x) ifelse(!is.na(x),x,0)
 
 merge_and_reconcile = function(prioritized_data, deprioritized_data, join_cols, all_prioritized = T, all_deprioritized = T) {
   merged_wide_with_duplicates = merge(prioritized_data, deprioritized_data, by = join_cols,
@@ -60,22 +51,20 @@ merge_and_reconcile = function(prioritized_data, deprioritized_data, join_cols, 
 
 companyData[, sic := as.numeric(sic)]
 companyData[, naics := as.numeric(naics)]
-varnames = fread('Data/Variable Names and Descriptions.csv', header = F)
+varnames = fread('Data/Variable Names and Descriptions.csv')
 
-setnames(varnames, c('combined','shortVarName','fullDescriptiveVarName'))
-varnames[, shortVarName := tolower(shortVarName)]
+varnames[, shortVarName := tolower(shortVarName)
+       ][, cleanDescriptiveVarName := gsub("[^[:alnum:]]", "", fullDescriptiveVarName)]
 descriptive_variable_names_for_fundamentalsData = data.table(shortVarName = tolower(names(fundamentalsData))
-                                                           )[varnames, on = 'shortVarName', fullDescriptiveVarName := i.fullDescriptiveVarName
-                                                           ][!is.na(fullDescriptiveVarName)
-                                                           ][, cleanDescriptiveVarName := gsub("[^[:alnum:]]", "", fullDescriptiveVarName)]
+                                                           )[varnames, on = 'shortVarName', cleanDescriptiveVarName := i.cleanDescriptiveVarName
+                                                           ][!is.na(cleanDescriptiveVarName)]
 setnames(fundamentalsData,
          descriptive_variable_names_for_fundamentalsData[, shortVarName],
          descriptive_variable_names_for_fundamentalsData[, cleanDescriptiveVarName])
 
 descriptive_variable_names_for_companyData = data.table(shortVarName = tolower(names(companyData))
-                                                      )[varnames, on = 'shortVarName', fullDescriptiveVarName := i.fullDescriptiveVarName
-                                                      ][!is.na(fullDescriptiveVarName)
-                                                      ][, cleanDescriptiveVarName := gsub("[^[:alnum:]]", "", fullDescriptiveVarName)]
+                                                      )[varnames, on = 'shortVarName', cleanDescriptiveVarName := i.cleanDescriptiveVarName
+                                                      ][!is.na(cleanDescriptiveVarName)]
 setnames(companyData,
          descriptive_variable_names_for_companyData[, shortVarName],
          descriptive_variable_names_for_companyData[, cleanDescriptiveVarName])
@@ -87,11 +76,13 @@ setnames(companyData,
 # setnames(fundamentalsData, merge$lowervarname, merge$UpperCamel)
 
 fundamentalsData[companyData, on = 'GlobalCompanyKey',
-   `:=`(currentsic = i.sic, currentnaics = i.naics, loc = i.loc)]
+   `:=`(currentsic = i.StandardIndustryClassificationCode,
+        currentnaics = i.NorthAmericanIndustryClassificationCode,
+        loc = i.CurrentISOCountryCodeHeadquarters)]
 fundamentalsData[, SIC := StandardIndustrialClassificationHistorical]
-fundamentalsData[is.na(SIC),SIC := currentsic]
+fundamentalsData[is.na(SIC), SIC := currentsic]
 fundamentalsData[, NAICS := NorthAmericaIndustrialClassificationSystemHistorical]
-fundamentalsData[is.na(NAICS),NAICS := currentnaics]
+fundamentalsData[is.na(NAICS), NAICS := currentnaics]
 
 fundamentalsData[, calendaryear := year(datadate)]
 fundamentalsData[, cusip6 := substr(cusip, 1, 6)]
@@ -107,7 +98,8 @@ fwrite(fundamentalsData,'IntermediateFiles/raw_dt.csv')
 
 tic()
 
-fundamentalsData = fundamentalsData[consol == 'C'] #remove subsidiaries
+fundamentalsData = fundamentalsData[consol == 'C']
+#remove duplicative entries like pro forma or unconsolidated pre-FASB statements
 
 with_restatements = merge_and_reconcile(fundamentalsData[datafmt == 'SUMM_STD' & indfmt == 'INDL'],
                                         fundamentalsData[datafmt == 'STD' & indfmt == 'INDL'],
@@ -156,42 +148,47 @@ with_financial_format_statements = merge_and_reconcile(with_restatements,
 # good = jkl[, c(join_cols, dupe_cols), with = F]
 toc()
 
-testdt = data.table(AssetsTotal.x = rep(c(0,1,NA), times = 3), AssetsTotal.y = rep(c(0,1,NA), each = 3))
+# testdt = data.table(AssetsTotal.x = rep(c(0,1,NA), times = 3), AssetsTotal.y = rep(c(0,1,NA), each = 3))
 
-dtcut = fundamentalsData[curcd=='USD'&!is.na(curcd)
-           &loc=='USA'
-           &consol=='C'
-           &datafmt=='STD'
-           &AssetsTotal!=0
-           &!is.na(SIC)] #the only firms missing SIC codes are firms that have yet to IPO. I don't understand the connection. They have NAICS codes.
+# dtcut = fundamentalsData[curcd=='USD'&!is.na(curcd)
+#            &loc=='USA'
+#            &consol=='C'
+#            &datafmt=='STD'
+#            &AssetsTotal!=0
+#            &!is.na(SIC)] #the only firms missing SIC codes are firms that have yet to IPO. I don't understand the connection. They have NAICS codes.
+# 
+# dtcut = dtcut[dtcut[,.I[sum(indfmt=='INDL')==0|indfmt=='INDL'],.(GlobalCompanyKey,DataYearFiscal)]$V1] #I use indfmt FS and INDL and then drop FS reports when they're duplicated
 
-dtcut = dtcut[dtcut[,.I[sum(indfmt=='INDL')==0|indfmt=='INDL'],.(GlobalCompanyKey,DataYearFiscal)]$V1] #I use indfmt FS and INDL and then drop FS reports when they're duplicated
-
-dtcut = with_financial_format_statements[curcd=='USD'& !is.na(curcd) & loc == 'USA' & AssetsTotal!=0 & !is.na(SIC)]
-nrow(with_financial_format_statements[is.na(AssetsTotal)])
+dtcut = with_financial_format_statements[(curcd=='USD'& !is.na(curcd)) & loc == 'USA' & (AssetsTotal != 0 | is.na(AssetsTotal)) & !is.na(SIC)]
 #the only firms missing SIC codes are firms that have yet to IPO. I don't understand the connection. They have NAICS codes.
+nrow(with_financial_format_statements[is.na(AssetsTotal)])
+
 dtcut[conm=='DELHAIZE AMERICA INC'&calendaryear==2001&CommonSharesOutstanding==91125.785,
       CommonSharesOutstanding := dtcut[conm=='DELHAIZE AMERICA INC'&calendaryear==2000]$CommonSharesOutstanding]
-dtcut[,MktVal:=MarketValueTotalFiscal]
-dtcut[is.na(MktVal),MktVal:=PriceCloseAnnualFiscal*CommonSharesOutstanding]
-dtcut[is.na(MktVal),MktVal:=PriceCloseAnnualCalendar*CommonSharesOutstanding]
-dtcut[is.na(PreferredPreferenceStockCapitalTotal)&!is.na(PreferredPreferenceStockRedeemable),
-      PreferredPreferenceStockCapitalTotal:=PreferredPreferenceStockRedeemable]
+dtcut[, MktVal := MarketValueTotalFiscal]
+dtcut[is.na(MktVal), MktVal := PriceCloseAnnualFiscal * CommonSharesOutstanding]
+dtcut[is.na(MktVal), MktVal := PriceCloseAnnualCalendar * CommonSharesOutstanding]
+dtcut[is.na(PreferredPreferenceStockCapitalTotal) & !is.na(PreferredPreferenceStockRedeemable),
+      PreferredPreferenceStockCapitalTotal := PreferredPreferenceStockRedeemable]
 
-dtcut[,preferred:=pmax(PreferredPreferenceStockCapitalTotal,PreferredStockLiquidatingValue,PreferredStockRedemptionValue,PreferredStockConvertible,na.rm = T)]
-dtcut[!is.na(preferred),MktVal:=MktVal+preferred]
+dtcut[, preferred := pmax(PreferredPreferenceStockCapitalTotal,PreferredStockLiquidatingValue,PreferredStockRedemptionValue,PreferredStockConvertible,na.rm = T)]
+dtcut[!is.na(preferred), MktVal := MktVal + preferred]
 dtcut = dtcut[MktVal != 0 | is.na(MktVal)] #drop about 100 firms with 0 common shares outstanding, mostly firms in the process of dissolving
 
-dtcut[,haspreviousfiscalyear:=(DataYearFiscal-1)%in%DataYearFiscal,GlobalCompanyKey]
-dtcut[,hascalendaryear:=DataYearFiscal%in%calendaryear,GlobalCompanyKey]
-dtcut[,missing:=haspreviousfiscalyear&!hascalendaryear][,wasmissing:=0]
-missings = dtcut[missing==T]
-missings[,calendaryear:=DataYearFiscal][,wasmissing:=1]
-dtcut = rbind(dtcut,missings)
+#firms choose the date at which their fiscal year ends, and they file their annual report, and unfortunately they sometimes change these dates
+#two things can happen: they can change from reporting in, say, November to reporting in, say, March, in which case there's a missing calendar year
+#(November 2006 for FY 2006 and March 2008 for FY 2007 lead to no observations in 2007).
+#Or, if they go from March to November, they have two reports in one calendar year
+dtcut[, haspreviousfiscalyear := (DataYearFiscal - 1) %in% DataYearFiscal, GlobalCompanyKey]
+dtcut[, hascalendaryear := DataYearFiscal %in% calendaryear, GlobalCompanyKey]
+dtcut[, missing := haspreviousfiscalyear & !hascalendaryear]
+missings = dtcut[missing == T]
+missings[, calendaryear := DataYearFiscal]
+dtcut = rbind(dtcut, missings)
 
-setkey(dtcut,GlobalCompanyKey,calendaryear)
-dtcut[,keep:=datadate==max(datadate),.(calendaryear,GlobalCompanyKey)]
-dtcut = dtcut[keep==T]
+setkey(dtcut, GlobalCompanyKey, calendaryear)
+dtcut[, keep := datadate == max(datadate), .(calendaryear, GlobalCompanyKey)]
+dtcut = dtcut[keep == T][, c('haspreviousfiscalyear', 'hascalendaryear', 'missing', 'keep') := NULL]
 
 dtcut = dtcut[calendaryear < 2020]
 
@@ -203,23 +200,24 @@ dtcut_without_utilities = dtcut[SIC %/% 100 == 49 &
 
 # duplicate_checking_data = merge(
 #   dtcut_without_utilities,
-#   companyData[, .SD, .SDcols = !c('conm', 'costat', 'loc',
-#                                   'dlrsn', 'dldte', 'prican', 'prirow', 'priusa', 'idbflag', 'fyrc')],
+#   companyData[, .SD, .SDcols = !c('conm', 'costat', 'CurrentISOCountryCodeHeadquarters',
+#                                   'ResearchCoReasonforDeletion', 'ResearchCompanyDeletionDate',
+#                                    'CurrentPrimaryIssueTagCanada', 'PrimaryIssueTagRestofWorld',
+#                                    'CurrentPrimaryIssueTagUS', 'InternationalDomesticBothIndicator',
+#                                    'CurrentFiscalYearEndMonth')],
 #   by.x = 'GlobalCompanyKey',
-#   by.y = 'gvkey')[, .SD, .SDcols = !c('curcd', 'currentsic', 'currentnaics', 'SIC', 'NAICS')
-#                   ][, !(DataYearFiscal:cusip)
-#                     ][, !(cusip6:keep)]
+#   by.y = 'gvkey')[, .SD, .SDcols = !c('curcd', 'currentsic', 'currentnaics', 'SIC', 'NAICS', 'DataYearFiscal', 'indfmt', 'consol', 'popsrc', 'datafmt', 'tic', 'cusip', 'cusip6', 'laborStrength', 'laborConcern', 'laborRelations', 'Anticompetitive Practices', 'MktVal', 'preferred')]
 # duplicate_checking_data[, `:=`(datadate = as.numeric(as.Date(datadate)),
 #                                ipodate = as.numeric(as.Date(ipodate)))]
 # duplicate_checking_data[, `:=`(cik = as.numeric(cik),
-#                                ggroup = as.numeric(ggroup),
-#                                gind = as.numeric(gind),
-#                                gsector = as.numeric(gsector),
-#                                gsubind = as.numeric(gsubind),
-#                                addzip = as.numeric(gsub('-| ','',addzip)),
-#                                phone = as.numeric(gsub('-| |\\(|\\)','',phone)),
-#                                fax = as.numeric(gsub('-| |\\(|\\)','',fax)),
-#                                ein = as.numeric(gsub('-| ','',ein)))]
+#                                GICGroups = as.numeric(GICGroups),
+#                                GICIndustries = as.numeric(GICIndustries),
+#                                GICSectors = as.numeric(GICSectors),
+#                                GICSubIndustries = as.numeric(GICSubIndustries),
+#                                PostalCode = as.numeric(gsub('-| ','',PostalCode)),
+#                                PhoneNumber = as.numeric(gsub('-| |\\(|\\)','',PhoneNumber)),
+#                                FaxNumber = as.numeric(gsub('-| |\\(|\\)','',FaxNumber)),
+#                                EmployerIdentificationNumber = as.numeric(gsub('-| ','',EmployerIdentificationNumber)))]
 # 
 # clusters = makeCluster(7)
 # registerDoSNOW(clusters)
@@ -236,8 +234,10 @@ dtcut_without_utilities = dtcut[SIC %/% 100 == 49 &
 #   n_firms = nrow(checking_for_duplicates)
 #   numeric_cols_scores = foreach(i = 1:ncol(checking_for_duplicates_numeric_cols), .combine = `+`)%do%{
 #     if(names(checking_for_duplicates_numeric_cols)[i] %in%
-#                c('datadate', 'fyr', 'sic', 'naics', 'StandardIndustrialClassificationHistorical', 'NorthAmericaIndustrialClassificationSystemHistorical', 'ggroup', 'gind',
-#                  'gsector', 'gsubind', 'spcindcd', 'spcseccd')
+#                c('datadate', 'fyr', 'StandardIndustryClassificationCode', 'NorthAmericanIndustryClassificationCode',
+#                  'StandardIndustrialClassificationHistorical', 'NorthAmericaIndustrialClassificationSystemHistorical',
+#                  'GICGroups', 'GICIndustries', 'GICSectors', 'GICSubIndustries',
+#                  'SPIndustrySectorCode', 'SPEconomicSectorCode')
 #        ) const = 4 else const = 10
 #     vec = checking_for_duplicates_numeric_cols[[i]]
 #     mat = t(replicate(n_firms, vec))
@@ -251,7 +251,10 @@ dtcut_without_utilities = dtcut[SIC %/% 100 == 49 &
 #   #                                   row = rep(1:n_firms, times = n_firms),
 #   #                                   col = rep(1:n_firms, each = n_firms))
 #   
-#   checking_for_duplicates_char_cols = checking_for_duplicates[, .(state, incorp, add1, add2, add3, add4, city, county, spcsrc)] #ein fax phone
+#
+# use tickers, so SPB = SPB.1
+#
+#   checking_for_duplicates_char_cols = checking_for_duplicates[, .(StateProvince, CurrentStateProvinceofIncorporationCode, AddressLine1, AddressLine2, AddressLine3, AddressLine4, City, CountyCode, SPQualityRankingCurrent)] #ein fax phone
 #   char_cols_scores = foreach(i = 1:ncol(checking_for_duplicates_char_cols), .combine = `+`)%do%{
 #     vec = checking_for_duplicates_char_cols[[i]]
 #     mat = t(replicate(n_firms, vec))
@@ -262,7 +265,7 @@ dtcut_without_utilities = dtcut[SIC %/% 100 == 49 &
 #   diag(char_cols_scores) = 0
 #   
 #   #wrap this in a function
-#   vec = checking_for_duplicates$stko
+#   vec = checking_for_duplicates$StockOwnershipCode
 #   mat = t(replicate(n_firms, vec))
 #   is_subsidiary = mat == 1 | mat == 2 | vec == 1 | vec == 2
 #   score = 10 * is_subsidiary
@@ -354,7 +357,7 @@ dtcut_without_utilities = dtcut[SIC %/% 100 == 49 &
 #                   'Exists Next Year', 'Has MW Next Year', 'firstyear', 'finalyear',
 #                   'naics', 'sic', 'add1', 'addzip', 'city', 'phone', 'fax')
 # setcolorder(to_check_for_duplicates_by_hand, c(first_columns, names(to_check_for_duplicates_by_hand)[!names(to_check_for_duplicates_by_hand) %in% first_columns]))
-# # write.xlsx(to_check_for_duplicates_by_hand, 'PotentialDuplicatesNewasdf.xlsx')
+# # write.xlsx(to_check_for_duplicates_by_hand, 'PotentialDuplicatesToHandCode.xlsx')
 
 asdf = data.table(read.xlsx('Data/HandCodedDuplicates.xlsx'))
 asdf[, total_should_delete_firm := sum(should_delete, na.rm = T), .(uniqueid, GlobalCompanyKey)]
@@ -362,16 +365,16 @@ asdf[, total_should_delete_pair := sum(should_delete, na.rm = T), uniqueid]
 asdf[((total_should_delete_firm == 0 | total_should_delete_firm == -Inf) & total_should_delete_pair > 0) & is.na(should_delete), should_delete := 0]
 asdf[total_should_delete_firm > 0 & total_should_delete_pair > 0 & is.na(should_delete), should_delete := 1]
 asdf[is.na(should_delete) & similarity_score > 130 & pair_id == 1, should_delete := 1]
-to_check_for_duplicates_by_hand[similarity_score > 100 & pair_id == 1, should_delete := 1]
+# to_check_for_duplicates_by_hand[similarity_score > 100 & pair_id == 1, should_delete := 1]
 
 dtcut[asdf[should_delete == 1, .(GlobalCompanyKey, calendaryear, should_delete, conm)], on = c('GlobalCompanyKey', 'calendaryear'), should_delete := i.should_delete]
-dtcut[to_check_for_duplicates_by_hand[should_delete == 1], on = c('GlobalCompanyKey', 'calendaryear'), should_delete := i.should_delete]
+# dtcut[to_check_for_duplicates_by_hand[should_delete == 1], on = c('GlobalCompanyKey', 'calendaryear'), should_delete := i.should_delete]
 dtcut = dtcut[should_delete != 1 | is.na(should_delete)]
-dtcut[,AssetsOther:=AssetsOther-na0(DeferredCharges)-na0(PrepaidExpenses)]
-dtcut[,intangibleratio:=IntangibleAssetsTotal/AssetsTotal]
-setkey(dtcut,GlobalCompanyKey,calendaryear)
+dtcut[, AssetsOther := AssetsOther - na0(DeferredCharges) - na0(PrepaidExpenses)]
+dtcut[, intangibleratio := IntangibleAssetsTotal/AssetsTotal]
+setkey(dtcut, GlobalCompanyKey, calendaryear)
 
-dtcut[,intangiblesadded:= +is.na(IntangibleAssetsTotal)]
+# dtcut[, intangiblesadded:= +is.na(IntangibleAssetsTotal)]
 dtcut_no_NA_intangibles = dtcut[!is.na(IntangibleAssetsTotal)]
 setkey(dtcut_no_NA_intangibles,GlobalCompanyKey,calendaryear)
 dtcut[,intangibleratio:=dtcut_no_NA_intangibles[dtcut,intangibleratio,roll='nearest']
