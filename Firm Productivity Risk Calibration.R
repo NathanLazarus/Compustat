@@ -1,5 +1,5 @@
 #Getting calibrated values for "psi" using firm TFP risk
-input_data = c(withThreeDigit = 'IntermediateFiles/withThreeDigit.csv',
+input_data = c(withThreeDigit = 'IntermediateFiles/withThreeDigit.csv', 
                TFPData = 'Data/TFPData_updated_2019.csv')
 
 withThreeDigit = fread_and_getCharCols(input_data['withThreeDigit'])

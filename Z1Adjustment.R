@@ -1,17 +1,17 @@
-input_data = c(dtcut = 'IntermediateFiles/dtcut.csv',
+input_data = c(dtcut = 'IntermediateFiles/dtcut.csv', 
                Z1CurrentAndHistoricalPrices = 'Data/Z1 Assets at Current and Historical Prices.csv')
 
 output_files = c(dtcutForSpreadsheets = 'IntermediateFiles/dtcut_for_spreadsheets.csv')
 
 temporary_files_to_send_to_python =
-  c(RealEstateEquipmenttoWeight = 'IntermediateFiles/real_estate_equipment_to_weight.csv',
+  c(RealEstateEquipmenttoWeight = 'IntermediateFiles/real_estate_equipment_to_weight.csv', 
     assetPctsandZ1Weights = 'IntermediateFiles/asset_pcts_and_Z1_weights.csv')
 
 python_output_files =
-  c(optimalRealEstateEquipmentWeights = 'IntermediateFiles/Optimal_real_estate_equipment_Weights.csv',
+  c(optimalRealEstateEquipmentWeights = 'IntermediateFiles/Optimal_real_estate_equipment_Weights.csv', 
     optimalZ1weights = 'IntermediateFiles/OptimalZ1Weights.csv')
 
-python_scripts = c(realEstateEquipmentWeights = 'real_estate_equipment_weights.py',
+python_scripts = c(realEstateEquipmentWeights = 'real_estate_equipment_weights.py', 
                    GetOptimalZ1Weights = 'GetOptimalZ1Weights.py')
 
 dtcut = fread_and_getCharCols(input_data['dtcut'])
@@ -46,9 +46,9 @@ depreciationconstants = foreach(i = 1:length(PPEcategories), .combine = rbind) %
                        sum(eval(parse(text = paste0('PropertyPlantandEquipment' , PPEcategories[i] , 'Net')))) /
                          sum(eval(parse(text = paste0('PropertyPlantandEquipment' , PPEcategories[i] , 'atCost'))))]
   #this is the important side effect
-  dtcut[, PPEcategories[i] := ifelse(!is.na(eval(parse(text = paste0('PropertyPlantandEquipment', PPEcategories[i],'Net')))), 
-                                  eval(parse(text = paste0('PropertyPlantandEquipment', PPEcategories[i],'Net'))), 
-                                  depreciation * eval(parse(text = paste0('PropertyPlantandEquipment', PPEcategories[i],'atCost'))))]
+  dtcut[, PPEcategories[i] := ifelse(!is.na(eval(parse(text = paste0('PropertyPlantandEquipment', PPEcategories[i], 'Net')))), 
+                                  eval(parse(text = paste0('PropertyPlantandEquipment', PPEcategories[i], 'Net'))), 
+                                  depreciation * eval(parse(text = paste0('PropertyPlantandEquipment', PPEcategories[i], 'atCost'))))]
   data.table(PPEcategory = PPEcategories[i], depreciationconstant = depreciation)
 }
 dtcut[, equipment := sum(MachineryandEquipment, 
@@ -73,7 +73,7 @@ dtcut[PPEuncategorized < 0, realestate_share := na0(realestate)/(na0(realestate)
 # setkey(dtcut_mostly_accounted_for, GlobalCompanyKey, calendaryear)
 # setkey(dtcut, GlobalCompanyKey, calendaryear)
 # re_merge = dtcut_mostly_accounted_for[dtcut, , roll = 'nearest']
-# dtcut[, c('mergedre','mergedeq','mergeyear','added')  :=  re_merge[, .(equipmentpct, realestatepct, calendaryear2, calendaryear2 != i.calendaryear2)]]
+# dtcut[, c('mergedre', 'mergedeq', 'mergeyear', 'added')  :=  re_merge[, .(equipmentpct, realestatepct, calendaryear2, calendaryear2 != i.calendaryear2)]]
 
 
 #can we guess at a firm's equipment to real estate ratio using sectoral data?
@@ -107,7 +107,7 @@ dtcut[IntangibleAssetsTotal == 0 & Goodwill > 0, `:=`(IntangibleAssetsTotal = Go
 dtcut[, goodwillpct := Goodwill/IntangibleAssetsTotal]
 # dtcut[, sum(Goodwill, na.rm = T)/sum(IntangibleAssetsTotal * !is.na(Goodwill), na.rm = T), .(calendaryear, twodigitsic)]
 dtcut[, stryear_1988_or_later := factor(pmax(calendaryear, 1988))]
-dtcut[, twodigitsic_after_1988 := ifelse(twodigitsic == '9','65', ifelse(twodigitsic == '84','79', twodigitsic))]
+dtcut[, twodigitsic_after_1988 := ifelse(twodigitsic == '9', '65', ifelse(twodigitsic == '84', '79', twodigitsic))]
 goodwillmod = lm(goodwillpct~stryear_1988_or_later + twodigitsic_after_1988, data = dtcut)
 dtcut[, goodwill_pct_year_sector := pmax(predict(goodwillmod, dtcut), 0)]
 
@@ -163,7 +163,7 @@ dtcut[, CurrentAssets_categorized := na0(InventoriesTotal) + na0(ReceivablesTota
         na0(CashandShortTermInvestments) + na0(CurrentAssetsOtherTotal)]
 dtcut[, CurrentAssets_uncategorized := CurrentAssetsTotal - CurrentAssets_categorized]
 
-dtcut[, c('oldInventoriesTotal','oldReceivablesTotal','oldCashandShortTermInvestments','oldCurrentAssetsOtherTotal') := .(InventoriesTotal, ReceivablesTotal, CashandShortTermInvestments, CurrentAssetsOtherTotal)]
+dtcut[, c('oldInventoriesTotal', 'oldReceivablesTotal', 'oldCashandShortTermInvestments', 'oldCurrentAssetsOtherTotal') := .(InventoriesTotal, ReceivablesTotal, CashandShortTermInvestments, CurrentAssetsOtherTotal)]
 
 dtcut[, current_assets_good := (CurrentAssets_uncategorized/CurrentAssetsTotal) < 0.001]
 dtcut[, ca_inventories_pct := na0(InventoriesTotal)/CurrentAssets_categorized
@@ -175,7 +175,7 @@ dtcut_current_assets_are_good = dtcut[current_assets_good == T]
 dtcut_current_assets_are_good[, ca_merge_success := 1]
 setkey(dtcut_current_assets_are_good, GlobalCompanyKey, calendaryear)
 ca_merge = dtcut_current_assets_are_good[dtcut, , roll = 'nearest']
-dtcut[, c('ca_inventories_pct_firm','ca_receivables_pct_firm','ca_cash_pct_firm','ca_other_pct_firm','ca_merge_success') :=
+dtcut[, c('ca_inventories_pct_firm', 'ca_receivables_pct_firm', 'ca_cash_pct_firm', 'ca_other_pct_firm', 'ca_merge_success') :=
         ca_merge[, .(ca_inventories_pct, ca_receivables_pct, ca_cash_pct, ca_other_pct, ca_merge_success)]]
 dtcut[, total_current_assets_year_sector := sum(InventoriesTotal, ReceivablesTotal, CashandShortTermInvestments, CurrentAssetsOtherTotal, na.rm = T), .(calendaryear, twodigitsic)]
 stopifnot(nrow(dtcut[total_current_assets_year_sector <= 0]) == 0)
@@ -184,12 +184,12 @@ dtcut[, ca_inventories_pct_year_sector := sum(InventoriesTotal, na.rm = T)/total
     ][, ca_cash_pct_year_sector := sum(CashandShortTermInvestments, na.rm = T)/total_current_assets_year_sector, .(calendaryear, twodigitsic)
     ][, ca_other_pct_year_sector := sum(CurrentAssetsOtherTotal, na.rm = T)/total_current_assets_year_sector, .(calendaryear, twodigitsic)]
 
-dtcut[ca_merge_success == 1, c('ca_other_pct','ca_inventories_pct','ca_receivables_pct','ca_cash_pct') := 
+dtcut[ca_merge_success == 1, c('ca_other_pct', 'ca_inventories_pct', 'ca_receivables_pct', 'ca_cash_pct') := 
         .(ca_other_pct_firm, ca_inventories_pct_firm, ca_receivables_pct_firm, ca_cash_pct_firm)]
 
-dtcut[conm == 'U S CHINA MINING GROUP INC' & (calendaryear == 2012 | calendaryear == 2013), c('ca_other_pct','ca_inventories_pct','ca_receivables_pct','ca_cash_pct') := .(0, 0, 1, 0)]
+dtcut[conm == 'U S CHINA MINING GROUP INC' & (calendaryear == 2012 | calendaryear == 2013), c('ca_other_pct', 'ca_inventories_pct', 'ca_receivables_pct', 'ca_cash_pct') := .(0, 0, 1, 0)]
 
-dtcut[is.na(ca_merge_success), c('ca_other_pct','ca_inventories_pct','ca_receivables_pct','ca_cash_pct') :=
+dtcut[is.na(ca_merge_success), c('ca_other_pct', 'ca_inventories_pct', 'ca_receivables_pct', 'ca_cash_pct') :=
         .(ca_other_pct_year_sector, ca_inventories_pct_year_sector, ca_receivables_pct_year_sector, ca_cash_pct_year_sector)]
 dtcut[, CurrentAssetsOtherTotal := na0(CurrentAssetsOtherTotal) + na0(ca_other_pct * CurrentAssets_uncategorized)
     ][, InventoriesTotal := na0(InventoriesTotal) + na0(ca_inventories_pct * CurrentAssets_uncategorized)
@@ -200,31 +200,31 @@ dtcut[, CurrentAssetsOtherTotal := na0(CurrentAssetsOtherTotal) + na0(ca_other_p
 # dtcut[, CurrentAssets_uncategorized_check := CurrentAssetsTotal - CurrentAssets_categorized_check]
 
 
-assetclasscols =  c('AssetsOther','DeferredCharges','PrepaidExpenses', 
-                    'InventoriesTotal','ReceivablesTotal','CashandShortTermInvestments','CurrentAssetsOtherTotal', 
-                    'realestate','equipment', 
-                    'InvestmentandAdvancesEquity','InvestmentandAdvancesOther', 
-                    'IntellectualProperty','Goodwill')
-tangible_assetclasscols =  c('AssetsOther','DeferredCharges','PrepaidExpenses', 
-                             'InventoriesTotal','ReceivablesTotal','CashandShortTermInvestments','CurrentAssetsOtherTotal', 
-                             'realestate','equipment', 
-                             'InvestmentandAdvancesEquity','InvestmentandAdvancesOther')
+assetclasscols =  c('AssetsOther', 'DeferredCharges', 'PrepaidExpenses', 
+                    'InventoriesTotal', 'ReceivablesTotal', 'CashandShortTermInvestments', 'CurrentAssetsOtherTotal', 
+                    'realestate', 'equipment', 
+                    'InvestmentandAdvancesEquity', 'InvestmentandAdvancesOther', 
+                    'IntellectualProperty', 'Goodwill')
+tangible_assetclasscols =  c('AssetsOther', 'DeferredCharges', 'PrepaidExpenses', 
+                             'InventoriesTotal', 'ReceivablesTotal', 'CashandShortTermInvestments', 'CurrentAssetsOtherTotal', 
+                             'realestate', 'equipment', 
+                             'InvestmentandAdvancesEquity', 'InvestmentandAdvancesOther')
 
 
-eval(parse(text = paste0('dtcut[, assets_accounted_for := sum(', paste0(assetclasscols, collapse = ','),', na.rm = T), by = 1:nrow(dtcut)]')))
+eval(parse(text = paste0('dtcut[, assets_accounted_for := sum(', paste0(assetclasscols, collapse = ','), ', na.rm = T), by = 1:nrow(dtcut)]')))
 
 
 dtcut[, residual := AssetsTotal - assets_accounted_for]
 
 dtcut[, asset_categories_add_up := abs(residual/AssetsTotal) < 0.01]
 
-dtcut[, total_categorized_assets := eval(parse(text = paste0('na0(', assetclasscols,')', collapse = '+')))]
-dtcut[, total_categorized_tangible_assets := eval(parse(text = paste0('na0(', tangible_assetclasscols,')', collapse = '+')))]
+dtcut[, total_categorized_assets := eval(parse(text = paste0('na0(', assetclasscols, ')', collapse = '+')))]
+dtcut[, total_categorized_tangible_assets := eval(parse(text = paste0('na0(', tangible_assetclasscols, ')', collapse = '+')))]
 
 
 throwaway = foreach(asset = assetclasscols) %do% {
-  dtcut[, paste0('residual_', asset,'_pct_firm') := eval(parse(text = paste0('na0(', asset,')/total_categorized_assets')))]
-  if (asset %in% tangible_assetclasscols) dtcut[, paste0('residual_', asset,'_tangible_pct_firm') := eval(parse(text = paste0('na0(', asset,')/total_categorized_tangible_assets')))]
+  dtcut[, paste0('residual_', asset, '_pct_firm') := eval(parse(text = paste0('na0(', asset, ')/total_categorized_assets')))]
+  if (asset %in% tangible_assetclasscols) dtcut[, paste0('residual_', asset, '_tangible_pct_firm') := eval(parse(text = paste0('na0(', asset, ')/total_categorized_tangible_assets')))]
   NULL
 }
 
@@ -234,35 +234,35 @@ setkey(dtcut_asset_categories_add_up, GlobalCompanyKey, calendaryear)
 residual_merge = dtcut_asset_categories_add_up[dtcut, , roll = 'nearest']
 dtcut[, residual_merge_success := residual_merge[, residual_merge_success]]
 
-dtcut[, total_categorized_assets_year_sector := eval(parse(text = paste0('sum(', paste(assetclasscols, collapse = ','),', na.rm = T)'))), .(calendaryear, twodigitsic)]
-dtcut[, total_categorized_tangible_assets_year_sector := eval(parse(text = paste0('sum(', paste(tangible_assetclasscols, collapse = ','),', na.rm = T)'))), .(calendaryear, twodigitsic)]
+dtcut[, total_categorized_assets_year_sector := eval(parse(text = paste0('sum(', paste(assetclasscols, collapse = ','), ', na.rm = T)'))), .(calendaryear, twodigitsic)]
+dtcut[, total_categorized_tangible_assets_year_sector := eval(parse(text = paste0('sum(', paste(tangible_assetclasscols, collapse = ','), ', na.rm = T)'))), .(calendaryear, twodigitsic)]
 stopifnot(nrow(dtcut[total_categorized_assets_year_sector <= 0]) == 0)
 stopifnot(nrow(dtcut[total_categorized_tangible_assets_year_sector <= 0]) == 0)
 
 throwaway = foreach(asset = assetclasscols) %do% {
-  dtcut[, paste0('residual_', asset,'_pct_year_sector') := eval(parse(text = paste0('sum(', asset,', na.rm = T)/total_categorized_assets_year_sector'))), .(calendaryear, twodigitsic)]
-  dtcut[, paste0('residual_', asset,'_pct_firm') := residual_merge[, paste0('residual_', asset,'_pct_firm'), with = F]]
-  dtcut[residual_merge_success == 1, paste0('residual_', asset,'_pct') := eval(parse(text = paste0('residual_', asset,'_pct_firm')))]
-  dtcut[is.na(residual_merge_success), paste0('residual_', asset,'_pct') := eval(parse(text = paste0('residual_', asset,'_pct_year_sector')))]
+  dtcut[, paste0('residual_', asset, '_pct_year_sector') := eval(parse(text = paste0('sum(', asset, ', na.rm = T)/total_categorized_assets_year_sector'))), .(calendaryear, twodigitsic)]
+  dtcut[, paste0('residual_', asset, '_pct_firm') := residual_merge[, paste0('residual_', asset, '_pct_firm'), with = F]]
+  dtcut[residual_merge_success == 1, paste0('residual_', asset, '_pct') := eval(parse(text = paste0('residual_', asset, '_pct_firm')))]
+  dtcut[is.na(residual_merge_success), paste0('residual_', asset, '_pct') := eval(parse(text = paste0('residual_', asset, '_pct_year_sector')))]
   
   if (asset %in% tangible_assetclasscols) {
-    dtcut[, paste0('residual_', asset,'_tangible_pct_year_sector') := eval(parse(text = paste0('sum(', asset,', na.rm = T)/total_categorized_tangible_assets_year_sector'))), .(calendaryear, twodigitsic)]
-    dtcut[, paste0('residual_', asset,'_tangible_pct_firm') := residual_merge[, paste0('residual_', asset,'_tangible_pct_firm'), with = F]]
-    dtcut[residual_merge_success == 1, paste0('residual_', asset,'_tangible_pct') := eval(parse(text = paste0('residual_', asset,'_tangible_pct_firm')))]
-    dtcut[is.na(residual_merge_success), paste0('residual_', asset,'_tangible_pct') := eval(parse(text = paste0('residual_', asset,'_tangible_pct_year_sector')))]
+    dtcut[, paste0('residual_', asset, '_tangible_pct_year_sector') := eval(parse(text = paste0('sum(', asset, ', na.rm = T)/total_categorized_tangible_assets_year_sector'))), .(calendaryear, twodigitsic)]
+    dtcut[, paste0('residual_', asset, '_tangible_pct_firm') := residual_merge[, paste0('residual_', asset, '_tangible_pct_firm'), with = F]]
+    dtcut[residual_merge_success == 1, paste0('residual_', asset, '_tangible_pct') := eval(parse(text = paste0('residual_', asset, '_tangible_pct_firm')))]
+    dtcut[is.na(residual_merge_success), paste0('residual_', asset, '_tangible_pct') := eval(parse(text = paste0('residual_', asset, '_tangible_pct_year_sector')))]
   }
   
-  dtcut[intangiblesadded == 0, paste0(asset) := eval(parse(text = paste0('na0(', asset,') +', paste0('residual_', asset,'_pct'),'*residual')))]
-  if (asset %in% tangible_assetclasscols) dtcut[intangiblesadded == 1, paste0(asset) := eval(parse(text = paste0('na0(', asset,') +', paste0('residual_', asset,'_tangible_pct'),'*residual')))]
+  dtcut[intangiblesadded == 0, paste0(asset) := eval(parse(text = paste0('na0(', asset, ') +', paste0('residual_', asset, '_pct'), '*residual')))]
+  if (asset %in% tangible_assetclasscols) dtcut[intangiblesadded == 1, paste0(asset) := eval(parse(text = paste0('na0(', asset, ') +', paste0('residual_', asset, '_tangible_pct'), '*residual')))]
   NULL
 }
 
-eval(parse(text = paste0('dtcut[, pseudoassets_check := sum(', paste0(assetclasscols, collapse = ','),', na.rm = T), by = 1:nrow(dtcut)]')))
+eval(parse(text = paste0('dtcut[, pseudoassets_check := sum(', paste0(assetclasscols, collapse = ','), ', na.rm = T), by = 1:nrow(dtcut)]')))
 
 dtcut[, residual_check := AssetsTotal - pseudoassets_check]
 
 sums_by_year = dtcut[, lapply(.SD, sum, na.rm = T), .(financial, calendaryear), .SDcols = 
-                       c(assetclasscols,'AssetsTotal')]
+                       c(assetclasscols, 'AssetsTotal')]
 
 setkey(sums_by_year, calendaryear, financial)
 sums_by_year[Z1, on = 'calendaryear', `:=`(Equipmentadjustment = i.Equipmentadjustment, 
@@ -275,7 +275,7 @@ pctsbyfin = cbind(sums_by_year[, .(financial, calendaryear)],
                   sums_by_year[, assetclasscols, with = F]/sums_by_year$AssetsTotal, 
                   sums_by_year[, .(Equipmentadjustment, IPadjustment, Inventoriesadjustment, RealEstateadjustment, AllAssetsadjustment)])
 
-eval(parse(text = paste0('pctsbyfin[, accountedfor2 := sum(', paste0(assetclasscols, collapse = ','),', na.rm = T), by = 1:nrow(pctsbyfin)]')))
+eval(parse(text = paste0('pctsbyfin[, accountedfor2 := sum(', paste0(assetclasscols, collapse = ','), ', na.rm = T), by = 1:nrow(pctsbyfin)]')))
 
 pctsbyfin[, dontrevalue := ReceivablesTotal + DeferredCharges + PrepaidExpenses + 
             Goodwill + CashandShortTermInvestments + AssetsOther + 
@@ -310,7 +310,7 @@ dtcut[, InventoriesTotal := InventoriesTotal * reweightedInventoriesadjustment
     ][, IntellectualProperty := IntellectualProperty * reweightedIntellectualPropertyadjustment
     ][, Goodwill := Goodwill * reweightedIntellectualPropertyadjustment]
 
-eval(parse(text = paste0('dtcut[, AssetsTotal := sum(', paste0(assetclasscols, collapse = ','),', na.rm = T), by = 1:nrow(dtcut)]')))
+eval(parse(text = paste0('dtcut[, AssetsTotal := sum(', paste0(assetclasscols, collapse = ','), ', na.rm = T), by = 1:nrow(dtcut)]')))
 #without the adjustments, this is exactly equal to AssetsTotal (the difference is less than 1e-10)
 
 dtcut[, IntangibleAssetsTotal := sum(IntellectualProperty, Goodwill, na.rm = T), by = 1:nrow(dtcut)]

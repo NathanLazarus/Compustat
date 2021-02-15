@@ -1,17 +1,17 @@
-input_data = c(withMarkups = 'IntermediateFiles/withMarkups.csv',
-               firmSoftwarePatenting = 'IntermediateFiles/firm_software_patenting.csv',
-               ITemployment = 'IntermediateFiles/IT_employment.csv',
-               inputOutputIT = 'IntermediateFiles/input_output_IT.csv',
-               BEACapitalAssets = 'IntermediateFiles/BEA Capital Assets by Industry.rds',
+input_data = c(withMarkups = 'IntermediateFiles/withMarkups.csv', 
+               firmSoftwarePatenting = 'IntermediateFiles/firm_software_patenting.csv', 
+               ITemployment = 'IntermediateFiles/IT_employment.csv', 
+               inputOutputIT = 'IntermediateFiles/input_output_IT.csv', 
+               BEACapitalAssets = 'IntermediateFiles/BEA Capital Assets by Industry.rds', 
                FernaldITCodes = 'IntermediateFiles/Fernald Categorical IT Intensity Codes.rds')
-output_files = c(foranalysis = 'IntermediateFiles/foranalysis.csv',
+output_files = c(foranalysis = 'IntermediateFiles/foranalysis.csv', 
                  monopolyWealthByITSpreadsheet = 'SpreadsheetOutputs/MonopolyWealthByIT.xlsx')
 
 withMarkups = fread_and_getCharCols(input_data['withMarkups'])
 
 withMarkups[, marketvalue := MktVal]
 
-withMarkups[, three_digit_HHI := sum((SalesTurnoverNet/sum(SalesTurnoverNet))^2), .(three_digit_NAICS,calendaryear)]
+withMarkups[, three_digit_HHI := sum((SalesTurnoverNet/sum(SalesTurnoverNet))^2), .(three_digit_NAICS, calendaryear)]
 #create imputation datasets with different NAICS codes and average the resulting HHIs. Or try to solve for the average analytically.
 #But don't treat all the imputed firms as small firms in a variety of industries
 
@@ -31,10 +31,10 @@ howsthis2[, IT_type := foverlaps(howsthis2, FernaldIT)[, IT_type]]
 
 input_output_IT = fread_and_getCharCols(input_data['inputOutputIT'])
 
-setkey(howsthis2,true_six_digit_NAICS,true_six_digit_NAICS2)
-setkey(input_output_IT,NAICSmin,NAICSmax)
+setkey(howsthis2, true_six_digit_NAICS, true_six_digit_NAICS2)
+setkey(input_output_IT, NAICSmin, NAICSmax)
 howsthis3 = foverlaps(howsthis2, input_output_IT)
-howsthis3[, c('NAICSmin','NAICSmax') := NULL]
+howsthis3[, c('NAICSmin', 'NAICSmax') := NULL]
 
 IT_employment = fread_and_getCharCols(input_data['ITemployment'])
 
@@ -49,8 +49,8 @@ howsthis4 = foverlaps(howsthis3, IT_employment)
 
 firm_software_patenting = fread_and_getCharCols(input_data['firmSoftwarePatenting'])
 
-howsthis4[firm_software_patenting,
-          on = c(calendaryear = 'appyear', GlobalCompanyKey = 'gvkey'),
+howsthis4[firm_software_patenting, 
+          on = c(calendaryear = 'appyear', GlobalCompanyKey = 'gvkey'), 
           `:=`(software_patents = i.patents, software_patents_rolling_5 = i.patents_rolling_5)]
 
 
@@ -61,7 +61,7 @@ setkey(howsthis4, cusip6)
 # merged = SDC_MA_data[howsthis4]
 howsthis4[, software_patents := NULL]
 patent_data = readRDS('patent_data_for_analysis.RDS')
-howsthis4[patent_data, `:=`(all_patents = all_patents, software_patents = software_patents),
+howsthis4[patent_data, `:=`(all_patents = all_patents, software_patents = software_patents), 
      on = c(cusip6 = 'owner', calendaryear = 'possession_year')]
 howsthis4[is.na(software_patents), `:=`(software_patents = 0, all_patents = 0)]
 

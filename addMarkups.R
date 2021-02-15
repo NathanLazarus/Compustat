@@ -1,4 +1,4 @@
-input_data = c(withSixDigit = 'IntermediateFiles/withSixDigit.csv',
+input_data = c(withSixDigit = 'IntermediateFiles/withSixDigit.csv', 
                FREDData = 'Data/FRED Data (Inflation and Interest Rates).rds')
 
 output_files = c(withMarkups = 'IntermediateFiles/withMarkups.csv')
@@ -12,7 +12,7 @@ capitalcost[, real_interest_ppi := FedFundsRate - ppi_inflation]
 capitalcost[, usercost := (12 + real_interest) / 100]
 capitalcost[, usercost_ppi := (12 + real_interest_ppi) / 100]
 
-production_function_coefs = setnames(data.table(read_dta('Data/theta_W_s_window.dta')),
+production_function_coefs = setnames(data.table(read_dta('Data/theta_W_s_window.dta')), 
                                      c('ind2d', 'theta_WI1_ct'), c('true_two_digit_NAICS', 'theta_v'))
 withSixDigit[capitalcost, on = c(calendaryear = 'year'), usercost := i.usercost]
 withSixDigit[, kexp := PropertyPlantandEquipmentTotalGross * usercost]
