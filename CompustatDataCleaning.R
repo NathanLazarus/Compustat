@@ -1,13 +1,17 @@
-rbind_and_fill = function(...) rbind(...,fill=T)
+input_data = c(companyData = 'Data/Company Data (fixed identifying variables).rds',
+               fundamentalsData = 'Data/Annual Fundamentals (most variables, raw).rds',
+               VariableNames = 'Data/Variable Names and Descriptions.csv',
+               KLDData = 'IntermediateFiles/KLD Data Clean.rds')
 
-na0 = function(x) ifelse(!is.na(x),x,0)
+output_files = c(raw_dt = 'IntermediateFiles/raw_dt.csv',
+                 dtcut = 'IntermediateFiles/dtcut.csv')
 
 #TRANE CO, TRANE INC? Duplicates?
 
 #This leaves financial firms and firms with missing market values in the data
 
-companyData = readRDS('Data/Company Data (fixed identifying variables).rds')
-fundamentalsData = readRDS('Data/Annual Fundamentals (most variables, raw).rds')
+companyData = readRDS(input_data['companyData'])
+fundamentalsData = readRDS(input_data['fundamentalsData'])
 
 merge_and_reconcile = function(prioritized_data, deprioritized_data, join_cols, all_prioritized = T, all_deprioritized = T) {
   merged_wide_with_duplicates = merge(prioritized_data, deprioritized_data, by = join_cols,
@@ -17,7 +21,7 @@ merge_and_reconcile = function(prioritized_data, deprioritized_data, join_cols, 
   dupe_cols = gsub('\\.from_prioritized', '', grep('\\.from_prioritized', names(merged_wide_with_duplicates), value = T))
   non_duplicated_cols = names(merged_wide_with_duplicates)[!grepl('\\.from_prioritized|\\.from_deprioritized', names(merged_wide_with_duplicates))]
   
-  foreach(var = dupe_cols)%do%{
+  foreach(var = dupe_cols) %do% {
     var_prioritized = paste0(var, '.from_prioritized')
     var_deprioritized = paste0(var, '.from_deprioritized')
     merged_wide_with_duplicates[, (var) := fifelse(!is.na(get(var_prioritized)) & get(var_prioritized) != 0, get(var_prioritized),
@@ -51,7 +55,7 @@ merge_and_reconcile = function(prioritized_data, deprioritized_data, join_cols, 
 
 companyData[, sic := as.numeric(sic)]
 companyData[, naics := as.numeric(naics)]
-varnames = fread('Data/Variable Names and Descriptions.csv')
+varnames = fread(input_data['VariableNames'])
 
 varnames[, shortVarName := tolower(shortVarName)
        ][, cleanDescriptiveVarName := gsub("[^[:alnum:]]", "", fullDescriptiveVarName)]
@@ -87,14 +91,14 @@ fundamentalsData[is.na(NAICS), NAICS := currentnaics]
 fundamentalsData[, calendaryear := year(datadate)]
 fundamentalsData[, cusip6 := substr(cusip, 1, 6)]
 
-KLD_data_clean = readRDS('IntermediateFiles/KLD Data Clean.rds')
+KLD_data_clean = readRDS(input_data['KLDData'])
 
 fundamentalsData[KLD_data_clean, on = c('cusip6', calendaryear = 'year'), `:=`(
   laborStrength = i.laborStrength, laborConcern = i.laborConcern,
   laborRelations = i.laborRelations, `Anticompetitive Practices` = `i.Anticompetitive Practices`
 )]
 
-fwrite(fundamentalsData,'IntermediateFiles/raw_dt.csv')
+fwrite(fundamentalsData, output_files['raw_dt'])
 
 tic()
 
@@ -390,4 +394,4 @@ dtcut[,predictedintangibleratio:=pmax(predict(intangiblemod,dtcut),0)
 
 
 
-fwrite(dtcut, 'IntermediateFiles/dtcut.csv', quote = T)
+fwrite(dtcut, output_files['dtcut'], quote = T)

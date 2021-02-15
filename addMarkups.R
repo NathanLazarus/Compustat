@@ -1,16 +1,12 @@
-getCharCols = function(x) {
-  second_line = readLines(x,n = 2)[2]
-  cols = strsplit(second_line, ',')[[1]]
-  grep('"',cols)
-}
+input_data = c(withSixDigit = 'IntermediateFiles/withSixDigit.csv',
+               FREDData = 'Data/FRED Data (Inflation and Interest Rates).rds')
 
-fread_and_getCharCols = function(x) {
-  fread(x, colClasses = list(character = getCharCols(x)))
-}
+output_files = c(withMarkups = 'IntermediateFiles/withMarkups.csv')
 
-withSixDigit = fread_and_getCharCols('IntermediateFiles/withSixDigit.csv')
 
-capitalcost = readRDS('Data/FRED Data (Inflation and Interest Rates).rds')
+withSixDigit = fread_and_getCharCols(input_data['withSixDigit'])
+
+capitalcost = readRDS(input_data['FREDData'])
 capitalcost[, real_interest := FedFundsRate - cpi_inflation]
 capitalcost[, real_interest_ppi := FedFundsRate - ppi_inflation]
 capitalcost[, usercost := (12 + real_interest) / 100]
@@ -23,7 +19,8 @@ withSixDigit[, kexp := PropertyPlantandEquipmentTotalGross * usercost]
 withSixDigit[, DLE_markup := theta_v * SalesTurnoverNet / CostofGoodsSold]
 theta_vx = 0.95
 withSixDigit[, Traina_markup := theta_vx * SalesTurnoverNet / (CostofGoodsSold + SellingGeneralandAdministrativeExpense)]
+#is kexp in profits?
 withSixDigit[, DLE_profit := (SalesTurnoverNet - CostofGoodsSold -
                                  SellingGeneralandAdministrativeExpense) / SalesTurnoverNet]
 
-fwrite(withSixDigit, 'IntermediateFiles/withMarkups.csv', quote = T)
+fwrite(withSixDigit, output_files['withMarkups'], quote = T)

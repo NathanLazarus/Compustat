@@ -2,10 +2,12 @@
 # for having anti-competitive practices in the given year,
 # or two years before or after
 
-KLDdata = readRDS('Data/KLD Data (Anticompetitive Practices).rds')
+input_data = c(KLDData = 'Data/KLD Data (Anticompetitive Practices).rds')
 
-na0 = function(x) ifelse(!is.na(x),x,0)
+output_files = c(KLDDataClean = 'IntermediateFiles/KLD Data Clean.rds')
 
+
+KLDdata = readRDS(input_data['KLDData'])
 
 setnames(KLDdata,
          c('pro_con_e', 'emp_str_a', 'emp_str_c',
@@ -61,4 +63,4 @@ KLDstack[laborStrength > 1, laborStrength := 1]
 KLDstack[`Anticompetitive Practices` > 1, `Anticompetitive Practices` := 1]
 KLDstack[, laborRelations := laborStrength - laborConcern]
 
-saveRDS(KLDstack, 'IntermediateFiles/KLD Data Clean.rds')
+saveRDS(KLDstack, output_files['KLDDataClean'])

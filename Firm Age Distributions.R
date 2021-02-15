@@ -1,23 +1,24 @@
-rbind_and_fill = function(...) rbind(...,fill=T)
+input_data = c(withThreeDigit = 'Data/withThreeDigit.csv',
+               firstAndLastYear = 'Data/First and Last Year in Compustat.rds',
+               firmFoundingDates = 'Data/Firm Founding Dates.xlsx',
+               CRSPCompustatLink = 'Data/CRSP Compustat Link (gvkey to permno and permco).rds',
+               myHandCodedFoundingDates = 'Data/My Hand Coded Founding Dates.xlsx',
+               FREDData = 'Data/FRED Data (Inflation and Interest Rates).rds')
 
-getCharCols = function(x) {
-  second_line = readLines(x,n = 2)[2]
-  cols = strsplit(second_line, ',')[[1]]
-  grep('"',cols)
-}
+output_files = c(firmAgeDistributions = 'SpreadsheetOutputs/Firm Age Distributions.xlsx',
+                 companyData = 'Data/Company Data (fixed identifying variables).rds')
 
-fread_and_getCharCols = function(x) {
-  fread(x, colClasses = list(character = getCharCols(x)))
-}
+withThreeDigit = fread_and_getCharCols(input_data['withThreeDigit'])
+went_public_data = merge(readRDS(input_data['firstAndLastYear']), readRDS(input_data['companyData']), all.x = T, all.y = T)
 
+firm_ages = data.table(read.xlsx(input_data['firmFoundingDates'])
+                     )[Founding != -99
+                     ][, cusip6 := substr(CUSIP, 1, 6)]
+gvkey_to_permno = unique(readRDS(input_data['CRSPCompustatLink']), by = c('gvkey', 'lpermno')
+                       )[, PERM := as.character(lpermno)
+                       ][!is.na(PERM)]
 
-withThreeDigit = fread_and_getCharCols('Data/withThreeDigit.csv')
-went_public_data = merge(readRDS('Data/First and Last Year in Compustat.rds'), readRDS('Data/companydata.rds'), all.x = T, all.y = T)
-
-firm_ages = data.table(read.xlsx('Data/Firm Founding Dates.xlsx'))[Founding != -99][, cusip6 := substr(CUSIP, 1, 6)]
-gvkey_to_permno = unique(readRDS('Data/CRSP Compustat Link (gvkey to permno and permco).rds'), by = c('gvkey', 'lpermno'))[, PERM := as.character(lpermno)][!is.na(PERM)]
-
-my_firm_ages = data.table(read.xlsx('Data/My Hand Coded Founding Dates.xlsx'))
+my_firm_ages = data.table(read.xlsx(input_data['myHandCodedFoundingDates']))
 
 setnames(gvkey_to_permno, 'gvkey', 'GlobalCompanyKey')
 just_compustat = unique(withThreeDigit, by = c('GlobalCompanyKey', 'calendaryear'))
@@ -27,7 +28,7 @@ just_compustat[firm_ages, on = 'cusip6', my_hand_coding_founded := i.Founding]
 gvkey_to_age = gvkey_to_permno[firm_ages, on = 'PERM', permno_founded := i.Founding]
 
 
-foreach(year_to_merge = unique(just_compustat$calendaryear))%do%{
+foreach(year_to_merge = unique(just_compustat$calendaryear)) %do% {
   to_merge = copy(gvkey_to_age)[, calendaryear := year_to_merge
                               ][!is.na(permno_founded) & year(linkdt) <= year_to_merge,
                                 .(first_component_firm_founded = min(permno_founded, na.rm = T), calendaryear = first(calendaryear)),
@@ -44,7 +45,7 @@ just_compustat[is.na(my_hand_coding_founded), founded := pmin(first_component_fi
 just_compustat[, firm_age := calendaryear - founded][firm_age < 0, firm_age := 0][firm_age > 100, firm_age := 100][, firm_age_mod_5 := firm_age %/% 5]
 just_compustat[data.table(firm_age_mod_5 = 0:20,firm_age_cat = factor(c(paste(seq(0,95,5),seq(4,99,5), sep = '-'),'100+'), levels = c(paste(seq(0,95,5),seq(4,99,5), sep = '-'),'100+')))
                , on = 'firm_age_mod_5', firm_age_cat := i.firm_age_cat]
-gdp_deflator = readRDS('Data/FRED Data (Inflation and Interest Rates).rds')[, .(gdpdef_level, calendaryear = year)]
+gdp_deflator = readRDS(input_data['FREDData'])[, .(gdpdef_level, calendaryear = year)]
 gdp_deflator[, to_2019_dollars := gdp_deflator[calendaryear == 2019, GDPDEF]/GDPDEF]
 just_compustat[gdp_deflator, on = 'calendaryear', to_2019_dollars := i.to_2019_dollars]
 just_compustat[, real_MW := monopolywealth * to_2019_dollars]
@@ -65,7 +66,8 @@ years_and_weights[, yr_to_mimic := yr_shows_up + yr_diff]
 years_and_weights = years_and_weights[yr_to_mimic >= 1950 & yr_to_mimic <= 2019]
 years_and_weights[, weight := weight/sum(weight), yr_shows_up]
 
-fake_firms_to_dummy_for_those_missing_founding_years = foreach(this_year_pair = iter(years_and_weights, by = 'row'), .combine = rbind)%do%{
+fake_firms_to_dummy_for_those_missing_founding_years = foreach(this_year_pair = iter(years_and_weights, by = 'row'),
+                                                               .combine = rbind) %do% {
   missing_founding_year_MW_to_allocate = just_compustat[is.na(cusip_founded) & is.na(first_component_firm_founded) &
                                                           earliest_compustat_date == this_year_pair$yr_shows_up & !is.na(real_MW), 
                                                         .(to_allocate = sum(real_MW)),
@@ -94,7 +96,7 @@ to_calculate_age_dist = rbind(just_compustat[!(is.na(cusip_founded) & is.na(firs
                               fill = T)
 
 age_dist_over_time = cbind(setkey(unique(to_calculate_age_dist[, .(firm_age_cat)]),firm_age_cat), 
-    foreach(year = 2019:1950, .combine = cbind)%do%{
+    foreach(year = 2019:1950, .combine = cbind) %do% {
       total_MW_for_year = to_calculate_age_dist[calendaryear == year & !is.na(firm_age) & !is.na(real_MW), sum(real_MW)]
       agedist = setkey(to_calculate_age_dist[calendaryear == year & !is.na(firm_age) & !is.na(real_MW),
                                       .(`Real Monopoly Wealth` = sum(real_MW)/1000, #(billions) pct: 100*sum(real_MW) / total_MW_for_year,
@@ -125,4 +127,4 @@ mw_by_founding_year_wide =
     c(1, ncol(mw_by_founding_year_wide):2))
 
 write.xlsx(list(age_dist_over_time, mw_by_founding_year_wide),
-           'SpreadsheetOutputs/Firm Age Distributions.xlsx')
+           output_files['firmAgeDistributions'])

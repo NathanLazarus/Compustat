@@ -1,17 +1,8 @@
-rbind_and_fill = function(...) rbind(...,fill=T)
+input_data = c(withThreeDigit = 'IntermediateFiles/withThreeDigit.csv')
 
-getCharCols = function(x) {
-  jkl = readLines(x,n = 2)[2]
-  cols = strsplit(jkl,',')[[1]]
-  grep('"',cols)
-}
+output_files = c(MWTWDecomposition = 'SpreadsheetOutputs/MWTW_decomposition.xlsx')
 
-fread_and_getCharCols = function(x) {
-  fread(x, colClasses = list(character = getCharCols(x)))
-}
-
-
-withThreeDigit = fread_and_getCharCols('withThreeDigit.csv')
+withThreeDigit = fread_and_getCharCols(input_data['withThreeDigit'])
 
 #add markups
 # fix this so that it's done in addMarkups.R and uses the actual DLE methodology
@@ -155,15 +146,15 @@ firms_and_industries[, my_two_digit_NAICS := my_three_digit_NAICS %/% 10]
 # setkey(which_industries_two_digit,rise_in_mwtw_if_industry_share_held_constant)[]
 # 
 
-over_time_decomposition_industry = foreach(yr = 1986:2019, .combine = rbind_and_fill)%do%{
-  firms_stay_the_same = merge(firms_and_industries[calendaryear == yr-1], firms_and_industries[calendaryear == yr], all.x = F, all.y = F,
+over_time_decomposition_industry = foreach(yr = 1986:2019, .combine = rbind_and_fill) %do% {
+  firms_stay_the_same = merge(firms_and_industries[calendaryear == yr - 1], firms_and_industries[calendaryear == yr], all.x = F, all.y = F,
                               by = c('GlobalCompanyKey', 'my_three_digit_NAICS'), suffixes = c('_old', '_new')) #[, issue := sum(firm_sales_old) == 0 | sum(firm_sales_new) == 0, my_three_digit_NAICS]
   firms_stay_the_same[, firm_share_of_industry_old := (firm_sales_old * three_digit_ratio_old)/sum(firm_sales_old * three_digit_ratio_old), my_three_digit_NAICS]
   firms_stay_the_same[, firm_share_of_industry_new := (firm_sales_new * three_digit_ratio_old)/sum(firm_sales_new * three_digit_ratio_old), my_three_digit_NAICS]
   firms_stay_the_same[, firm_share_of_industry_new_after_industry_entry_exit := (firm_sales_new * three_digit_ratio_new)/sum(firm_sales_new * three_digit_ratio_new), my_three_digit_NAICS]
   
   for (i in names(firms_stay_the_same))
-    firms_stay_the_same[is.nan(get(i)), (i):=0]
+    firms_stay_the_same[is.nan(get(i)), (i) := 0]
   
   firms_stay_the_same[, industry_share_of_economy_old := sum(firm_sales_old * three_digit_ratio_old)/sum(firms_stay_the_same[, firm_sales_old * three_digit_ratio_old]), my_three_digit_NAICS]
   firms_stay_the_same[, industry_share_of_economy_new := sum(firm_sales_new * three_digit_ratio_old)/sum(firms_stay_the_same[, firm_sales_new * three_digit_ratio_old]), my_three_digit_NAICS]
@@ -175,7 +166,7 @@ over_time_decomposition_industry = foreach(yr = 1986:2019, .combine = rbind_and_
   full_reallocation_and_industry_entry_exit = firms_stay_the_same[, sum(firm_share_of_industry_new_after_industry_entry_exit * industry_share_of_economy_new_after_industry_entry_exit * firm_MW_old) / sum(firm_share_of_industry_new_after_industry_entry_exit * industry_share_of_economy_new_after_industry_entry_exit * firm_TW_old)]
   change_mw = firms_stay_the_same[, sum(firm_share_of_industry_old * industry_share_of_economy_old * firm_MW_new) / sum(firm_share_of_industry_old * industry_share_of_economy_old * firm_TW_new)]
   final = firms_stay_the_same[, sum(firm_share_of_industry_new_after_industry_entry_exit * industry_share_of_economy_new_after_industry_entry_exit * firm_MW_new) / sum(firm_share_of_industry_new_after_industry_entry_exit * industry_share_of_economy_new_after_industry_entry_exit * firm_TW_new)]
-  actual_mw_old = firms[calendaryear == yr-1, sum(size * firm_MW) / sum(size * firm_TW)]
+  actual_mw_old = firms[calendaryear == yr - 1, sum(size * firm_MW) / sum(size * firm_TW)]
   actual_mw_new = firms[calendaryear == yr, sum(size * firm_MW) / sum(size * firm_TW)]
   data.table(year = yr, initial = initial, change_mw = change_mw, change_both_shares_full_reallocation = change_both_shares_full_reallocation,
              linear =  change_mw + full_reallocation_and_industry_entry_exit - initial, final = final,
@@ -194,7 +185,7 @@ over_time_decomposition_cumulative = over_time_decomposition_industry[, lapply(.
                                                                                   'industry_reallocation', 'cross_term_firm_industry_reallocation',
                                                                                   'industry_entry_exit', 'within_firm_rise', 'cross_term', 'entry_exit'
                                                                       )][, year := over_time_decomposition_industry$year]
-write.xlsx(over_time_decomposition_cumulative, 'MWTW_decomposition.xlsx')
+write.xlsx(over_time_decomposition_cumulative, output_files['MWTWDecomposition'])
 
 over_time_decomposition_long = melt(over_time_decomposition_industry[, .(year, reallocation, within_firm_rise,
                                                                          cross_term, entry_exit)],
@@ -223,15 +214,15 @@ ggplot(over_time_decomposition_long2, aes(x = year, y = cumulative, color = comp
 # firms_and_industries[, mwtw_ratio := firm_MW/firm_TW]
 firms_and_industries = firms_and_industries[!is.na(DLE_markup) & DLE_markup < 20 & DLE_markup > -1]
 
-over_time_decomposition_DLE = foreach(yr = 1986:2019, .combine = rbind_and_fill)%do%{
-  firms_stay_the_same = merge(firms_and_industries[calendaryear == yr-1], firms_and_industries[calendaryear == yr], all.x = F, all.y = F,
+over_time_decomposition_DLE = foreach(yr = 1986:2019, .combine = rbind_and_fill) %do% {
+  firms_stay_the_same = merge(firms_and_industries[calendaryear == yr - 1], firms_and_industries[calendaryear == yr], all.x = F, all.y = F,
                               by = c('GlobalCompanyKey', 'my_three_digit_NAICS'), suffixes = c('_old', '_new')) #[, issue := sum(firm_sales_old) == 0 | sum(firm_sales_new) == 0, my_three_digit_NAICS]
   firms_stay_the_same[, firm_share_of_industry_old := (firm_sales_old * three_digit_ratio_old)/sum(firm_sales_old * three_digit_ratio_old), my_three_digit_NAICS]
   firms_stay_the_same[, firm_share_of_industry_new := (firm_sales_new * three_digit_ratio_old)/sum(firm_sales_new * three_digit_ratio_old), my_three_digit_NAICS]
   firms_stay_the_same[, firm_share_of_industry_new_after_industry_entry_exit := (firm_sales_new * three_digit_ratio_new)/sum(firm_sales_new * three_digit_ratio_new), my_three_digit_NAICS]
   
   for (i in names(firms_stay_the_same))
-    firms_stay_the_same[is.nan(get(i)), (i):=0]
+    firms_stay_the_same[is.nan(get(i)), (i) := 0]
   
   firms_stay_the_same[, industry_share_of_economy_old := sum(firm_sales_old * three_digit_ratio_old)/sum(firms_stay_the_same[, firm_sales_old * three_digit_ratio_old]), my_three_digit_NAICS]
   firms_stay_the_same[, industry_share_of_economy_new := sum(firm_sales_new * three_digit_ratio_old)/sum(firms_stay_the_same[, firm_sales_new * three_digit_ratio_old]), my_three_digit_NAICS]
@@ -248,7 +239,7 @@ over_time_decomposition_DLE = foreach(yr = 1986:2019, .combine = rbind_and_fill)
   hm = copy(firms)
   hm[DLE_markup > 20, DLE_markup := 20]
   hm[DLE_markup < -1, DLE_markup := -1]
-  actual_mw_old = hm[calendaryear == yr-1, wtd.mean(DLE_markup, size)]
+  actual_mw_old = hm[calendaryear == yr - 1, wtd.mean(DLE_markup, size)]
   actual_mw_new = hm[calendaryear == yr, wtd.mean(DLE_markup, size)]
   
   data.table(year = yr, initial = initial, change_mw = change_mw, change_both_shares_full_reallocation = change_both_shares_full_reallocation,

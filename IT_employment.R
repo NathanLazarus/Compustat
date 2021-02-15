@@ -1,7 +1,9 @@
-library(foreach)
+input_data = c(ACS = 'Data/IPUMS ACS.csv')
 
-setwd('C:/Users/Nathan/Downloads/Compustat')
-acs = fread('Data/IPUMS ACS.csv')
+output_files = c(ITEmployment = 'IntermediateFiles/IT_employment.csv')
+
+
+acs = fread(input_data['ACS'])
 
 acs[,INDNAICS := trimws(INDNAICS)]
 all_codes = unique(acs[,.(INDNAICS, YEAR)])
@@ -52,4 +54,7 @@ my_it_averaged = acs[OCC > 0 & OCC < 9800,
                          .(IT_employment = sum((OCC %in% my_it_occ) * PERWT) / sum(PERWT)),
                          naics]
 
-fwrite(bessen_it_by_year, 'IntermediateFiles/IT_employment.csv', quote = T)
+bessen_it_by_year[, NAICSmin := as.numeric(str_pad(naics, width=6, side='right', pad='0'))]
+bessen_it_by_year[, NAICSmax := as.numeric(str_pad(naics, width=6, side='right', pad='9'))]
+
+fwrite(bessen_it_by_year, output_files['ITEmployment'], quote = T)

@@ -1,3 +1,6 @@
+input_data = c(SDC_MA_Directory = 'Data/Annual SDC MA Data')
+output_files = c(SDCData = 'Data/SDC_data.rds')
+
 # asdf = readLines('8520MA/9899MA.txt')
 # asdf2 = readLines('7020MA/9801MA.txt')
 # # # evens = asdf[(1:length(asdf))[(1:length(asdf))%%2 == 0]]
@@ -14,12 +17,7 @@
 #                           col_types = cols(.default = col_character())))
 
 
-library(readr)
-library(lubridate)
-
-rbind_and_fill = function(...) rbind(...,fill=T)
-
-files = list.files('Data/7020MA', full.names = T)
+files = list.files(input_data['SDC_MA_Directory'], full.names = T)
 
 maxcol = 0
 yearlydata = foreach(file = files)%do%{
@@ -66,4 +64,4 @@ saveRDS(MA_data[`M&A Type` %in% c('Disclosed Dollar Value', 'Undisclosed Dollar 
                   # !`Acquiror Name` %in% c('Investor Group', 'Undisclosed Acquiror', 'Creditors',
                   #                         'Investor', 'Employee Stock Ownership Plan', 'Undisclosed Joint Venture',
                   #                         'Bondholders', 'Investors', 'Shareholders', 'Seeking Buyer', 'Preferred Shareholders')
-                ], 'Data/SDC_data.rds')
+                ], output_files['SDCData'])

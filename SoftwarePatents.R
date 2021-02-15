@@ -1,32 +1,30 @@
-getCharCols = function(x) {
-  jkl = readLines(x,n = 2)[2]
-  cols = strsplit(jkl,',')[[1]]
-  grep('"',cols)
-}
+input_data = c(AutorMatch = 'ADHPS-WebMatch/cw_patent_compustat_adhps.csv',
+               citationData = 'COMETS_data/Patent DTA/patent_cite_counts_v2.rds',
+               patentCategories = 'COMETS_data/Patent DTA/patent_zd_cats_v2.rds',
+               assigneeEntityNames = 'COMETS_data/Patent DTA/patent_assignees_v2.rds',
+               patentNumbersToYears = 'Data/YearsAndPatentNumbers.csv',
+               CompustatRawData = 'IntermediateFiles/raw_dt.csv',
+               SDCData = 'Data/SDC_data.rds')
 
-fread_and_getCharCols = function(x) {
-  fread(x, colClasses = list(character = getCharCols(x)))
-}
-
-
+output_files = c(patentDataForAnalysis = 'IntermediateFiles/patent_data_for_analysis.RDS')
 
 
-Autor_patent_match = fread('ADHPS-WebMatch/cw_patent_compustat_adhps.csv',
+Autor_patent_match = fread(input_data['AutorMatch'],
              colClasses = list(character = c('patent', 'gvkey')))
 Autor_patent_match[, patent_id := as.numeric(patent)]
 
-citations = readRDS('COMETS_data/Patent DTA/patent_cite_counts_v2.rds')
+citations = readRDS(input_data['citationData'])
 citations = citations[, sum(citations), patent_id]
 setnames(citations,c('patent_id', 'citations'))
 
-categories = readRDS('COMETS_data/Patent DTA/patent_zd_cats_v2.rds')
+categories = readRDS(input_data['patentCategories'])
 categories[, software := +(zd == 'com')]
 categories_unique = categories[, .(software = sum(software * wt)), patent]
 
 citations_and_categories = merge(citations, categories_unique,
                                    by.x = 'patent_id', by.y = 'patent',
                                    all.x = T, all.y = T)
-assignees = readRDS('COMETS_data/Patent DTA/patent_assignees_v2.rds')
+assignees = readRDS(input_data['assigneeEntityNames'])
 assignees[app_date == '', app_date := NA_character_
         ][, app_date := as.Date(fast_strptime(app_date, "%Y-%m-%d"))
         ][, grant_date := as.Date(fast_strptime(grant_date, "%Y-%m-%d"))
@@ -51,7 +49,7 @@ date_midpoint = function(start, end) {
   start + (end - start)/2
 }
 citations_categories_and_assignees[is.na(grant_date), grant_date_by_midpoint_of_patent_ids := date_midpoint(previous_patent_grant_date,next_patent_grant_date)]
-YearsAndPatentNumbers = fread('Data/YearsAndPatentNumbers.csv')
+YearsAndPatentNumbers = fread(input_data['patentNumbersToYears'])
 setnames(YearsAndPatentNumbers, 'Patent_Number', 'first_patent'
          )[, last_patent := shift(first_patent, type = 'lead') - 1]
 
@@ -101,7 +99,7 @@ Autor_patent_match[citations_categories_and_assignees, on = 'patent_id',
                         software = i.software,
                         app_date = i.app_date)]
 
-Compustat_dt = fread_and_getCharCols('IntermediateFiles/raw_dt.csv')
+Compustat_dt = fread_and_getCharCols(input_data['CompustatRawData'])
 Autor_patent_match[, GlobalCompanyKey := as.numeric(gvkey)]
 setkey(Compustat_dt, GlobalCompanyKey)
 setkey(Autor_patent_match, GlobalCompanyKey)
@@ -133,7 +131,7 @@ all_Autor_matches[is.na(appyear), appyear := year(app_date)]
 
 unmatched = citations_categories_and_assignees[!all_Autor_matches, on ='patent_id']
 
-SDC_MA_data = readRDS('Data/SDC_data.rds')
+SDC_MA_data = readRDS(input_data['SDCData'])
 # SDC_MA_data[all_Autor_matches, on = c(`Target CUSIP` = 'cusip6'),
 #             `:=`(patent_id = i.patent_id,
 #                  software = i.software,
@@ -372,7 +370,7 @@ final = patent_ownership_by_year[, .(all_patents = sum(citation_weighted * remai
 # test[, cusip := `Acquiror Ultimate Parent CUSIP`]
 # merge(test, patent_ownership_by_year, all.x = T, all.y = T, by = 'cusip')
 
-saveRDS(final, 'IntermediateFiles/patent_data_for_analysis.RDS')
+saveRDS(final, output_files['patentDataForAnalysis'])
 
 
 

@@ -1,23 +1,12 @@
 #Getting calibrated values for "psi" using firm TFP risk
+input_data = c(withThreeDigit = 'IntermediateFiles/withThreeDigit.csv',
+               TFPData = 'Data/TFPData_updated_2019.csv')
 
-rbind_and_fill = function(...) rbind(...,fill=T)
-
-getCharCols = function(x) {
-  second_line = readLines(x,n = 2)[2]
-  cols = strsplit(second_line, ',')[[1]]
-  grep('"',cols)
-}
-
-fread_and_getCharCols = function(x) {
-  fread(x, colClasses = list(character = getCharCols(x)))
-}
-
-
-withThreeDigit = fread_and_getCharCols('IntermediateFiles/withThreeDigit.csv')
+withThreeDigit = fread_and_getCharCols(input_data['withThreeDigit'])
 # withThreeDigit[, value_added := oibdp + emp*wage]
 
 
-tfp_data = fread('TFPData_updated_2019.csv')[, TFP_level := exp(TFP)]
+tfp_data = fread(input_data['TFPData'])[, TFP_level := exp(TFP)]
 # tfp_data = fread('TFPData_updated_ImrohorogluTuzel (1).csv')[, TFP_level := exp(TFP)]
 asdf = unique(withThreeDigit, by = c('GlobalCompanyKey', 'calendaryear'))[, .(conm, DataYearFiscal, calendaryear, SalesTurnoverNet, GlobalCompanyKey = as.integer(GlobalCompanyKey))][tfp_data, on = c(DataYearFiscal = 'fyear', GlobalCompanyKey = 'gvkey')]
 aggregate_tfp = setkey(unique(asdf[, .(average_TFP = wtd.mean(TFP_level, weights = SalesTurnoverNet)), calendaryear]), calendaryear)[]

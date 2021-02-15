@@ -1,16 +1,8 @@
-rbind_and_fill = function(...) rbind(...,fill=T)
+input_data = c(dtcutForSpreadsheets = 'IntermediateFiles/dtcut_for_spreadsheets.csv')
 
-getCharCols = function(x) {
-  second_line = readLines(x,n = 2)[2]
-  cols = strsplit(second_line, ',')[[1]]
-  grep('"',cols)
-}
+output_files = c(profitsTaxEstimates = 'SpreadsheetOutputs/profits_tax_estimates.xlsx')
 
-fread_and_getCharCols = function(x) {
-  fread(x, colClasses = list(character = getCharCols(x)))
-}
-
-dtcut = fread_and_getCharCols('IntermediateFiles/dtcut_for_spreadsheets.csv')
+dtcut = fread_and_getCharCols(input_data['dtcutForSpreadsheets'])
 
 implied_r = 0.04
 tax_rate = 0.5
@@ -38,5 +30,5 @@ companies_for_profits_tax_table = dtcut[grepl(paste0('COCA-COLA|PROCTER|AMERICAN
                                                     `Current U.S. Corporate Tax Liability` = IncomeTaxesFederal, `Foreign Corporate Tax Liability` = IncomeTaxesForeign)
                                                 ]
 
-write.xlsx(setorder(companies_for_profits_tax_table, -`Profits Tax`)[],
-           'SpreadsheetOutputs/profits_tax_estimates.xlsx')
+write.xlsx(setorder(companies_for_profits_tax_table, -`Profits Tax`),
+           output_files['profitsTaxEstimates'])

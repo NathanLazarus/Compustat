@@ -1,3 +1,5 @@
+output_files = c(FREDData = 'Data/FRED Data (Inflation and Interest Rates).rds')
+
 FREDkey = fread('FRED APIkey.csv')
 fredr_set_key(FREDkey$APIkey)
 
@@ -29,4 +31,4 @@ setnames(inflation_measures, sapply(strsplit(names(inflation_measures), '_', fix
 
 FREDdata = inflation_measures[fedfunds, on = 'year']
 
-saveRDS(FREDdata, 'Data/FRED Data (Inflation and Interest Rates).rds')
+saveRDS(FREDdata, output_files['FREDData'])

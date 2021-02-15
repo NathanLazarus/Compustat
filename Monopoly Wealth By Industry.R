@@ -1,27 +1,14 @@
-library(data.table)
-library(openxlsx)
-library(stringr)
-library(readxl)
+input_data = c(withMarkups = 'IntermediateFiles/withMarkups.csv',
+               NAICS_codes = 'Data/2017_NAICS_Codes.xlsx')
 
-getCharCols = function(x) {
-  jkl = readLines(x,n = 2)[2]
-  cols = strsplit(jkl,',')[[1]]
-  grep('"',cols)
-}
+output_files = c(MW_by_industry = 'SpreadsheetOutputs/monopoly_wealth_by_industry_2019.xlsx')
 
-rbind_and_fill = function(...) rbind(...,fill=T)
-
-fread_and_getCharCols = function(x) {
-  fread(x, colClasses = list(character = getCharCols(x)))
-}
-
-setwd("C:/Users/Nathan/Downloads/Compustat")
-withSixDigit = fread_and_getCharCols('IntermediateFiles/withMarkups.csv')
+withSixDigit = fread_and_getCharCols(input_data['withMarkups'])
 
 withSixDigit[, marketvalue := MktVal]
 
 
-NAICS_codes_to_names = data.table(read_excel('Data/2017_NAICS_Codes.xlsx'))
+NAICS_codes_to_names = data.table(read_excel(input_data['NAICS_codes']))
 suppressWarnings(NAICS_codes_to_names[, Code := as.numeric(str_pad(Code, width=6, side='right', pad='0'))])
 
 industry_aggregates = withSixDigit[!is.na(monopolywealth)&calendaryear==2019,
@@ -48,5 +35,4 @@ monopolywealth_by_industry_1985[substr(true_three_digit_NAICS,1,2) == '52', `:=`
 
 monopolywealth_by_industry[monopolywealth_by_industry_1985, on = 'Name', `:=`(mwv_1985 = i.mwv, mwtw_1985 = i.mwtw)]
 
-write.xlsx(monopolywealth_by_industry,
-           'SpreadsheetOutputs/monopoly_wealth_by_industry_2019.xlsx')
+write.xlsx(monopolywealth_by_industry, output_files['MW_by_industry'])

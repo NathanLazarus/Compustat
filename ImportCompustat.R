@@ -1,3 +1,10 @@
+output_files = c(companyData = 'Data/Company Data (fixed identifying variables).rds',
+                 fundamentalsData = 'Data/Annual Fundamentals (most variables, raw).rds',
+                 KLDData = 'Data/KLD Data (Anticompetitive Practices).rds',
+                 companyData = 'Data/Company Data (fixed identifying variables).rds',
+                 compustatNames = 'Data/First and Last Year in Compustat.rds')
+
+
 login_info = fread('CompustatPassword.csv')
 
 wrds = dbConnect(Postgres(),
@@ -70,8 +77,8 @@ CompustatNames =
                )
   )
 
-saveRDS(data.table(CompustatCompany),'Data/Company Data (fixed identifying variables).rds')
-saveRDS(data.table(CompustatFundamentals),'Data/Annual Fundamentals (most variables, raw).rds')
-saveRDS(data.table(KLDdata),'Data/KLD Data (Anticompetitive Practices).rds')
-saveRDS(data.table(CRSPCompustatLink),'Data/CRSP Compustat Link (gvkey to permno and permco).rds')
-saveRDS(data.table(CompustatNames),'Data/First and Last Year in Compustat.rds')
+saveRDS(data.table(CompustatCompany), output_files['companyData'])
+saveRDS(data.table(CompustatFundamentals), output_files['fundamentalsData'])
+saveRDS(data.table(KLDdata), output_files['KLDData'])
+saveRDS(data.table(CRSPCompustatLink), output_files['CRSPCompustatLink'])
+saveRDS(data.table(CompustatNames), output_files['compustatNames'])
