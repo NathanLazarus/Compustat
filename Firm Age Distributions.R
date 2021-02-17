@@ -1,20 +1,20 @@
-input_data = c(withThreeDigit = 'Data/withThreeDigit.csv', 
-               firstAndLastYear = 'Data/First and Last Year in Compustat.rds', 
+input_data = c(withThreeDigit = 'Data/withThreeDigit.feather', 
+               firstAndLastYear = 'Data/First and Last Year in Compustat.feather', 
                firmFoundingDates = 'Data/Firm Founding Dates.xlsx', 
-               CRSPCompustatLink = 'Data/CRSP Compustat Link (gvkey to permno and permco).rds', 
-               myHandCodedFoundingDates = 'Data/My Hand Coded Founding Dates.xlsx', 
-               FREDData = 'Data/FRED Data (Inflation and Interest Rates).rds')
+               CRSPCompustatLink = 'Data/CRSP Compustat Link (gvkey to permno and permco).feather', 
+               myHandCodedFoundingDates = 'Data/My Hand Coded Founding Dates.xlsx',
+               CRSPCompustatLink = 'Data/CRSP Compustat Link (gvkey to permno and permco).feather',
+               FREDData = 'Data/FRED Data (Inflation and Interest Rates).feather')
 
-output_files = c(firmAgeDistributions = 'SpreadsheetOutputs/Firm Age Distributions.xlsx', 
-                 companyData = 'Data/Company Data (fixed identifying variables).rds')
+output_files = c(firmAgeDistributions = 'SpreadsheetOutputs/Firm Age Distributions.xlsx')
 
-withThreeDigit = fread_and_getCharCols(input_data['withThreeDigit'])
-went_public_data = merge(readRDS(input_data['firstAndLastYear']), readRDS(input_data['companyData']), all.x = T, all.y = T)
+withThreeDigit = read_feather_dt(input_data['withThreeDigit'])
+went_public_data = merge(read_feather_dt(input_data['firstAndLastYear']), read_feather_dt(input_data['companyData']), all.x = T, all.y = T)
 
 firm_ages = data.table(read.xlsx(input_data['firmFoundingDates'])
                      )[Founding != -99
                      ][, cusip6 := substr(CUSIP, 1, 6)]
-gvkey_to_permno = unique(readRDS(input_data['CRSPCompustatLink']), by = c('gvkey', 'lpermno')
+gvkey_to_permno = unique(read_feather_dt(input_data['CRSPCompustatLink']), by = c('gvkey', 'lpermno')
                        )[, PERM := as.character(lpermno)
                        ][!is.na(PERM)]
 

@@ -1,4 +1,4 @@
-output_files = c(FernaldITcodes = 'IntermediateFiles/Fernald IT Codes.csv')
+output_files = c(FernaldITcodes = 'IntermediateFiles/Fernald IT Codes.feather')
 
 it_producing_industries = c(5415, 511, 516, 334)
 
@@ -23,4 +23,4 @@ FernaldIT[, NAICSmin := as.numeric(str_pad(NAICS, width = 6, side = 'right', pad
 FernaldIT[, NAICSmax := as.numeric(str_pad(NAICS, width = 6, side = 'right', pad = '9'))]
 setkey(FernaldIT, NAICSmin, NAICSmax)
 
-saveRDS(FernaldIT, output_files['FernaldITCodes'])
+write_feather(FernaldIT, output_files['FernaldITCodes'])

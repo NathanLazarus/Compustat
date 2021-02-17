@@ -1,6 +1,6 @@
 #Aggregates
 
-dtcut = readRDS('dtcut_for_spreadsheets.rds')
+dtcut = read_feather_dt('dtcut_for_spreadsheets.feather')
 
 sheet_names = c('All Firms','All Firms With Market Value',
                 'Non-Financial, Has Market Value','Financial, Has Market Value',

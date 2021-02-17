@@ -1,10 +1,10 @@
-input_data = c(withMarkups = 'IntermediateFiles/withMarkups.csv',
-               FernaldITCodes = 'IntermediateFiles/Fernald Categorical IT Intensity Codes.rds')
+input_data = c(withMarkups = 'IntermediateFiles/withMarkups.feather',
+               FernaldITCodes = 'IntermediateFiles/Fernald Categorical IT Intensity Codes.feather')
 
 output_files = c(monopolyWealthByITSpreadsheet = 'SpreadsheetOutputs/MonopolyWealthByIT.xlsx')
 
-withMarkups = fread_and_getCharCols(input_data['withMarkups'])
-FernaldIT = readRDS(input_data['FernaldITCodes'])
+withMarkups = read_feather_dt(input_data['withMarkups'])
+FernaldIT = read_feather_dt(input_data['FernaldITCodes'])
 
 withMarkups[, true_six_digit_NAICS2 := true_six_digit_NAICS]
 setkey(withMarkups, true_six_digit_NAICS, true_six_digit_NAICS2)

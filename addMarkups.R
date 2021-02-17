@@ -1,10 +1,10 @@
-input_data = c(withSixDigit = 'IntermediateFiles/withSixDigit.csv', 
-               FREDData = 'Data/FRED Data (Inflation and Interest Rates).rds')
+input_data = c(withSixDigit = 'IntermediateFiles/withSixDigit.feather', 
+               FREDData = 'Data/FRED Data (Inflation and Interest Rates).feather')
 
-output_files = c(withMarkups = 'IntermediateFiles/withMarkups.csv')
+output_files = c(withMarkups = 'IntermediateFiles/withMarkups.feather')
 
 
-withSixDigit = fread_and_getCharCols(input_data['withSixDigit'])
+withSixDigit = read_feather_dt(input_data['withSixDigit'])
 
 capitalcost = readRDS(input_data['FREDData'])
 capitalcost[, real_interest := FedFundsRate - cpi_inflation]
@@ -23,4 +23,4 @@ withSixDigit[, Traina_markup := theta_vx * SalesTurnoverNet / (CostofGoodsSold +
 withSixDigit[, DLE_profit := (SalesTurnoverNet - CostofGoodsSold -
                                  SellingGeneralandAdministrativeExpense) / SalesTurnoverNet]
 
-fwrite(withSixDigit, output_files['withMarkups'], quote = T)
+write_feather(withSixDigit, output_files['withMarkups'])

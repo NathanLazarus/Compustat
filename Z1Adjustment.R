@@ -1,10 +1,10 @@
-input_data = c(dtcut = 'IntermediateFiles/dtcut.csv', 
+input_data = c(dtcut = 'IntermediateFiles/dtcut.feather', 
                Z1CurrentAndHistoricalPrices = 'Data/Z1 Assets at Current and Historical Prices.csv')
 
-output_files = c(dtcutForSpreadsheets = 'IntermediateFiles/dtcut_for_spreadsheets.csv')
+output_files = c(dtcutForSpreadsheets = 'IntermediateFiles/dtcut_for_spreadsheets.feather')
 
 temporary_files_to_send_to_python =
-  c(RealEstateEquipmenttoWeight = 'IntermediateFiles/real_estate_equipment_to_weight.csv', 
+  c(realEstateEquipmentToWeight = 'IntermediateFiles/real_estate_equipment_to_weight.csv', 
     assetPctsandZ1Weights = 'IntermediateFiles/asset_pcts_and_Z1_weights.csv')
 
 python_output_files =
@@ -14,7 +14,7 @@ python_output_files =
 python_scripts = c(realEstateEquipmentWeights = 'real_estate_equipment_weights.py', 
                    GetOptimalZ1Weights = 'GetOptimalZ1Weights.py')
 
-dtcut = fread_and_getCharCols(input_data['dtcut'])
+dtcut = read_feather_dt(input_data['dtcut'])
 Z1 = fread(input_data['Z1CurrentAndHistoricalPrices'])
 
 Z1[, calendaryear := as.integer(substring(Year, 1, 4))][, Year := NULL]
@@ -89,7 +89,7 @@ industry_year_PPE_aggregates[industry_aggregate_real_estate_share, on = 'twodigi
                            ][, min_re_share := realestate_categorized/total]
 setkey(industry_year_PPE_aggregates, calendaryear, twodigitsic)
 fwrite(industry_year_PPE_aggregates[, .(realestate_categorized, uncategorized, total, desired_real_estate_share, sector_re_share, calendaryear, twodigitsic)], 
-       temporary_files_to_send_to_python['realEstateEquipmenttoWeight'], col.names = T)
+       temporary_files_to_send_to_python['realEstateEquipmentToWeight'], col.names = T)
 
 shell(python_scripts['realEstateEquipmentWeights'])
 
@@ -310,7 +310,7 @@ dtcut[, InventoriesTotal := InventoriesTotal * reweightedInventoriesadjustment
     ][, IntellectualProperty := IntellectualProperty * reweightedIntellectualPropertyadjustment
     ][, Goodwill := Goodwill * reweightedIntellectualPropertyadjustment]
 
-eval(parse(text = paste0('dtcut[, AssetsTotal := sum(', paste0(assetclasscols, collapse = ','), ', na.rm = T), by = 1:nrow(dtcut)]')))
+eval(parse(text = paste0('dtcut[, AssetsTotal := sum(', paste0(assetclasscols, collapse = ', '), ', na.rm = T), by = 1:nrow(dtcut)]')))
 #without the adjustments, this is exactly equal to AssetsTotal (the difference is less than 1e-10)
 
 dtcut[, IntangibleAssetsTotal := sum(IntellectualProperty, Goodwill, na.rm = T), by = 1:nrow(dtcut)]
@@ -323,14 +323,13 @@ setkey(dtcut, GlobalCompanyKey, calendaryear)
 setkey(dtcut_no_NA_liabilities, GlobalCompanyKey, calendaryear)
 dtcut[, liabilityratio := dtcut_no_NA_liabilities[dtcut, liabilityratio, roll = 'nearest']
     ][is.na(LiabilitiesTotal), LiabilitiesTotal := liabilityratio * AssetsTotal]
-liabilitymod = lm(liabilityratio~factor(calendaryear) + twodigitsic, data = dtcut)
+liabilitymod = lm(liabilityratio ~ factor(calendaryear) + twodigitsic, data = dtcut)
 dtcut[, predictedliabilityratio := pmax(predict(liabilitymod, dtcut), 0)
     ][is.na(LiabilitiesTotal), LiabilitiesTotal := predictedliabilityratio * AssetsTotal]
 
 dtcut[, monopolywealth := MktVal - AssetsTotal + IntangibleAssetsTotal + LiabilitiesTotal
-    ][, totalwealth := MktVal + LiabilitiesTotal
-    ][, mwtw := monopolywealth/totalwealth
-    ][, mwv := monopolywealth/MktVal]
+    ][, totalwealth := MktVal + LiabilitiesTotal]
 
+dtcut_without_cols_created_here = dtcut[, !(desired_real_estate_share:liabilityratio)]
 
-fwrite(dtcut, output_files['dtcutForSpreadsheets'], quote = T)
+write_feather(dtcut_without_cols_created_here, output_files['dtcutForSpreadsheets'])

@@ -1,9 +1,9 @@
-input_data = c(withMarkups = 'IntermediateFiles/withMarkups.csv', 
+input_data = c(withMarkups = 'IntermediateFiles/withMarkups.feather', 
                NAICS_codes = 'Data/2017_NAICS_Codes.xlsx')
 
 output_files = c(MW_by_industry = 'SpreadsheetOutputs/monopoly_wealth_by_industry_2019.xlsx')
 
-withSixDigit = fread_and_getCharCols(input_data['withMarkups'])
+withSixDigit = read_feather_dt(input_data['withMarkups'])
 
 withSixDigit[, marketvalue := MktVal]
 

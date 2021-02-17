@@ -2,12 +2,12 @@
 # for having anti-competitive practices in the given year, 
 # or two years before or after
 
-input_data = c(KLDData = 'Data/KLD Data (Anticompetitive Practices).rds')
+input_data = c(KLDData = 'Data/KLD Data (Anticompetitive Practices).feather')
 
-output_files = c(KLDDataClean = 'IntermediateFiles/KLD Data Clean.rds')
+output_files = c(KLDDataClean = 'IntermediateFiles/KLD Data Clean.feather')
 
 
-KLDdata = readRDS(input_data['KLDData'])
+KLDdata = read_feather_dt(input_data['KLDData'])
 
 setnames(KLDdata, 
          c('pro_con_e', 'emp_str_a', 'emp_str_c', 
@@ -54,7 +54,7 @@ KLDstack = rbind(KLDclean,
                  copy(KLDclean)[, year := year - 1], 
                  copy(KLDclean)[, year := year - 2], 
                  fill = T)
-KLDstack[, .(laborConcern = sum(laborConcern), 
+KLDstack[, `:=`(laborConcern = sum(laborConcern), 
              laborStrength = sum(laborStrength), 
              `Anticompetitive Practices` = sum(`Anticompetitive Practices`)), 
          .(cusip6, year)]
@@ -63,4 +63,4 @@ KLDstack[laborStrength > 1, laborStrength := 1]
 KLDstack[`Anticompetitive Practices` > 1, `Anticompetitive Practices` := 1]
 KLDstack[, laborRelations := laborStrength - laborConcern]
 
-saveRDS(KLDstack, output_files['KLDDataClean'])
+write_feather(KLDstack, output_files['KLDDataClean'])

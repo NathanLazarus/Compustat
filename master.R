@@ -8,15 +8,16 @@ source('Get Fred Macro Data.R')
 
 source('CompustatDataCleaning.R')
 source('Z1Adjustment.R')
+source('Old NAICS Codes to 2017.R')
 source('imputingNAICS.R')
+source('addMarkups.R')
 
 # * Add Outside Data for Regressions -----
 
 source('Clean KLD Data.R')
 source('Clean BEA Capital Data.R')
-source('addMarkups.R')
-source('FernaldIT.R')
 source('readSDC.R')
+source('FernaldIT.R')
 source('SoftwarePatents.R')
 source('input_output_IT.R')
 source('IT_employment.R')
@@ -36,5 +37,6 @@ source('cross_sectional_analysis.R')
 
 # Use these regexes for formatting -------
 # (?<=[^ :<>`])([!=:]?=|%do%|%in%)(?![ ]) replace with " \1 " (operators without a space)
-# (should add %%, < > <= >= %/% & | + - * / but be careful not to turn ?<= into ? <=)
+# (should add %%, < > <= >= %/% & | + - * / but be careful not to turn ?<= into ? <=
+# or foreach(..., .combine = '+') into ' + ')
 # (?<!=[ ]?')(,)(?![ \n]) replace with ", " (commas not followed by a space)

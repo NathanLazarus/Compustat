@@ -5,7 +5,7 @@ input_data = c(overallCapital = 'Data/cap_details.xlsx',
                intellectualPropertyCapital = 'Data/cap_details_ipp.xlsx', 
                informationCapital = 'Data/cap_details_ipe.xlsx')
 
-output_files = c(BEACapitalByIndustry = 'IntermediateFiles/BEA Capital Assets by Industry.rds')
+output_files = c(BEACapitalByIndustry = 'IntermediateFiles/BEA Capital Assets by Industry.feather')
 
 aggregate_capital = 
   data.table(read.xlsx(input_data['overallCapital'], sheet = 'DATA')
@@ -85,4 +85,4 @@ BEA_capital_assets[, average_it_capital_ratio := rowMeans(.SD, na.rm = T), .SDco
 BEA_capital_assets[, average_ip_capital_ratio := rowMeans(.SD, na.rm = T), .SDcols = grep('ip_capital_ratio', names(BEA_capital_assets), value = T)]
 BEA_capital_assets[, average_computer_capital_ratio := rowMeans(.SD, na.rm = T), .SDcols = grep('computer_capital_ratio', names(BEA_capital_assets), value = T)]
 
-saveRDS(BEA_capital_assets, output_files['BEACapitalByIndustry'])
+write_feather(BEA_capital_assets, output_files['BEACapitalByIndustry'])

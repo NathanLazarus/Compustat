@@ -1,8 +1,8 @@
-input_data = c(withThreeDigit = 'IntermediateFiles/withThreeDigit.csv')
+input_data = c(withThreeDigit = 'IntermediateFiles/withThreeDigit.feather')
 
 output_files = c(MWTWDecomposition = 'SpreadsheetOutputs/MWTW_decomposition.xlsx')
 
-withThreeDigit = fread_and_getCharCols(input_data['withThreeDigit'])
+withThreeDigit = read_feather_dt(input_data['withThreeDigit'])
 
 #add markups
 # fix this so that it's done in addMarkups.R and uses the actual DLE methodology
@@ -286,7 +286,7 @@ ggplot(over_time_decomposition_long2, aes(x = year, y = cumulative, color = comp
 
 
 data[, biggest_three_digit_ratio := three_digit_ratio == max(three_digit_ratio), .(GlobalCompanyKey, calendaryear)][, adj_my_three_digit_NAICS := my_three_digit_NAICS * biggest_six_digit_ratio]
-lets_look_at_firms = data[!my_three_digit_NAICS %in% c(221, 521, 522, 523, 524, 525) & !is.na(my_three_digit_NAICS) & !is.na(monopolywealth) &!is.na(totalwealth), 
+lets_look_at_firms = data[!my_three_digit_NAICS %in% c(221, 521, 522, 523, 524, 525) & !is.na(my_three_digit_NAICS) & !is.na(monopolywealth) & !is.na(totalwealth), 
                           .(firm_MW = sum(monopolywealth * three_digit_ratio), 
                             firm_TW = sum(totalwealth * three_digit_ratio), 
                             firm_sales = sum(SalesTurnoverNet * three_digit_ratio), 

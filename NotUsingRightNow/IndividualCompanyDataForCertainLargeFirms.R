@@ -9,7 +9,6 @@ for(i in conames){
   forxl = rbind(forxl,dtcut[conm==i&datafmt=='STD'&DataYearFiscal==2019])
 }
 forxl[,capitalemployed:=AssetsTotal - IntangibleAssetsTotal]
-library(openxlsx)
 sheet_name = 'unformatted'
 tryCatch({wb=loadWorkbook('C:/Users/Nathan/Downloads/Compustat/ForIndividualFirms2019.xlsx')},
          error = function(e) {wb <<- createWorkbook()})

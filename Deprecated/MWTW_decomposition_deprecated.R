@@ -1,4 +1,4 @@
-data = fread_and_getCharCols('foranalysis.csv')
+data = read_feather_dt('foranalysis.feather')
 
 
 data[, my_three_digit_NAICS := true_six_digit_NAICS %/% 1000]
@@ -53,10 +53,6 @@ firms_and_industries = data[!my_three_digit_NAICS %in% c(221, 521, 522, 523, 524
 firms_and_industries[, size := firm_sales/sum(firm_sales), calendaryear]
 # firms_and_industries[, mwtw_ratio := firm_MW/firm_TW]
 firms_and_industries[, my_two_digit_NAICS := my_three_digit_NAICS %/% 10]
-
-library(iterators)
-library(snow)
-library(doSNOW)
 
 clusters=makeCluster(7)
 registerDoSNOW(clusters)

@@ -1,7 +1,7 @@
 input_data = c(InputOutputRequirementsTable = 'Data/IxI_TR_2007_2012_PRO_DET.xlsx', 
                BEAIndustriesToNAICS = 'Data/Use_SUT_Framework_2007_2012_DET.xlsx')
 
-output_files = c(ITInputElasticity = 'IntermediateFiles/input_output_IT.csv')
+output_files = c(ITInputElasticity = 'IntermediateFiles/input_output_IT.feather')
 
 
 
@@ -66,6 +66,5 @@ BEA_industries_to_NAICS[input_required_table[, .(BEA_Code, it_input_elasticity)]
                         on = 'BEA_Code', 
                         it_input_elasticity := i.it_input_elasticity]
 
-fwrite(BEA_industries_to_NAICS[, .(BEA_Code, NAICS_Code, NAICSmin, NAICSmax, it_input_elasticity)], 
-       output_files['ITInputElasticity'], 
-       quote = T)
+write_feather(BEA_industries_to_NAICS[, .(BEA_Code, NAICS_Code, NAICSmin, NAICSmax, it_input_elasticity)], 
+              output_files['ITInputElasticity'])

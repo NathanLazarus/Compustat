@@ -3,10 +3,10 @@ input_data = c(AutorMatch = 'ADHPS-WebMatch/cw_patent_compustat_adhps.csv',
                patentCategories = 'COMETS_data/Patent DTA/patent_zd_cats_v2.rds', 
                assigneeEntityNames = 'COMETS_data/Patent DTA/patent_assignees_v2.rds', 
                patentNumbersToYears = 'Data/YearsAndPatentNumbers.csv', 
-               CompustatRawData = 'IntermediateFiles/raw_dt.csv', 
-               SDCData = 'Data/SDC_data.rds')
+               CompustatRawData = 'IntermediateFiles/raw_dt.feather', 
+               SDCData = 'Data/SDC_data.feather')
 
-output_files = c(patentDataForAnalysis = 'IntermediateFiles/patent_data_for_analysis.RDS')
+output_files = c(patentDataForAnalysis = 'IntermediateFiles/patent_data_for_analysis.feather')
 
 
 Autor_patent_match = fread(input_data['AutorMatch'], 
@@ -99,7 +99,7 @@ Autor_patent_match[citations_categories_and_assignees, on = 'patent_id',
                         software = i.software, 
                         app_date = i.app_date)]
 
-Compustat_dt = fread_and_getCharCols(input_data['CompustatRawData'])
+Compustat_dt = read_feather_dt(input_data['CompustatRawData'])
 Autor_patent_match[, GlobalCompanyKey := as.numeric(gvkey)]
 setkey(Compustat_dt, GlobalCompanyKey)
 setkey(Autor_patent_match, GlobalCompanyKey)
@@ -131,7 +131,7 @@ all_Autor_matches[is.na(appyear), appyear := year(app_date)]
 
 unmatched = citations_categories_and_assignees[!all_Autor_matches, on = 'patent_id']
 
-SDC_MA_data = readRDS(input_data['SDCData'])
+SDC_MA_data = read_feather_dt(input_data['SDCData'])
 # SDC_MA_data[all_Autor_matches, on = c(`Target CUSIP` = 'cusip6'), 
 #             `:=`(patent_id = i.patent_id, 
 #                  software = i.software, 
@@ -370,7 +370,7 @@ final = patent_ownership_by_year[, .(all_patents = sum(citation_weighted * remai
 # test[, cusip := `Acquiror Ultimate Parent CUSIP`]
 # merge(test, patent_ownership_by_year, all.x = T, all.y = T, by = 'cusip')
 
-saveRDS(final, output_files['patentDataForAnalysis'])
+write_feather(final, output_files['patentDataForAnalysis'])
 
 
 

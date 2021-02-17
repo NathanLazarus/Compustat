@@ -1,6 +1,6 @@
 input_data = c(ACS = 'Data/IPUMS ACS.csv')
 
-output_files = c(ITEmployment = 'IntermediateFiles/IT_employment.csv')
+output_files = c(ITEmployment = 'IntermediateFiles/IT_employment.feather')
 
 
 acs = fread(input_data['ACS'])
@@ -57,4 +57,4 @@ my_it_averaged = acs[OCC > 0 & OCC < 9800,
 bessen_it_by_year[, NAICSmin := as.numeric(str_pad(naics, width = 6, side = 'right', pad = '0'))]
 bessen_it_by_year[, NAICSmax := as.numeric(str_pad(naics, width = 6, side = 'right', pad = '9'))]
 
-fwrite(bessen_it_by_year, output_files['ITEmployment'], quote = T)
+write_feather(bessen_it_by_year, output_files['ITEmployment'])

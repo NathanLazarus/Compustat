@@ -1,5 +1,5 @@
 input_data = c(SDC_MA_Directory = 'Data/Annual SDC MA Data')
-output_files = c(SDCData = 'Data/SDC_data.rds')
+output_files = c(SDCData = 'Data/SDC_data.feather')
 
 # asdf = readLines('8520MA/9899MA.txt')
 # asdf2 = readLines('7020MA/9801MA.txt')
@@ -59,9 +59,9 @@ MA_data[, `Date Effective/ Unconditional` := mdy(`Date Effective/ Unconditional`
 MA_data[, `Date Withdrawn` := mdy(`Date Withdrawn`)]
 MA_data[, `Target Company Date of Fin.` := mdy(`Target Company Date of Fin.`)]
 
-saveRDS(MA_data[`M&A Type` %in% c('Disclosed Dollar Value', 'Undisclosed Dollar Value') &
-                  Status == 'Completed' # &
-                  # !`Acquiror Name` %in% c('Investor Group', 'Undisclosed Acquiror', 'Creditors', 
-                  #                         'Investor', 'Employee Stock Ownership Plan', 'Undisclosed Joint Venture', 
-                  #                         'Bondholders', 'Investors', 'Shareholders', 'Seeking Buyer', 'Preferred Shareholders')
-                ], output_files['SDCData'])
+write_feather(MA_data[`M&A Type` %in% c('Disclosed Dollar Value', 'Undisclosed Dollar Value') &
+                      Status == 'Completed' # &
+                      # !`Acquiror Name` %in% c('Investor Group', 'Undisclosed Acquiror', 'Creditors', 
+                      #                         'Investor', 'Employee Stock Ownership Plan', 'Undisclosed Joint Venture', 
+                      #                         'Bondholders', 'Investors', 'Shareholders', 'Seeking Buyer', 'Preferred Shareholders')
+                    ], output_files['SDCData'])

@@ -1,13 +1,40 @@
 rbind_and_fill = function(...) rbind(...,fill=T)
 
-getCharCols = function(x) {
-  second_line = readLines(x,n = 2)[2]
-  cols = strsplit(second_line, ',')[[1]]
-  grep('"',cols)
+read_feather_dt = function(file) data.table(read_feather(file))
+
+na0 = function(x) fifelse(!is.na(x), x, 0)
+
+
+merge_and_reconcile = function(prioritized_data, deprioritized_data, join_cols, all_prioritized = T, all_deprioritized = T) {
+  merged_wide_with_duplicates = merge(prioritized_data, deprioritized_data, by = join_cols, 
+                                      all.x = all_prioritized, all.y = all_deprioritized, 
+                                      suffixes = c('.from_prioritized', '.from_deprioritized'))
+  
+  dupe_cols = gsub('\\.from_prioritized', '', grep('\\.from_prioritized', names(merged_wide_with_duplicates), value = T))
+  non_duplicated_cols = names(merged_wide_with_duplicates)[!grepl('\\.from_prioritized|\\.from_deprioritized',
+                                                                  names(merged_wide_with_duplicates))]
+  
+  foreach(var = dupe_cols) %do% {
+    var_prioritized = paste0(var, '.from_prioritized')
+    var_deprioritized = paste0(var, '.from_deprioritized')
+    merged_wide_with_duplicates[, (var) := fifelse(!is.na(get(var_prioritized)) & get(var_prioritized) != 0, get(var_prioritized), 
+                                                   fifelse(!is.na(get(var_prioritized)) & get(var_prioritized) == 0, 
+                                                           fifelse(!is.na(get(var_deprioritized)) & get(var_deprioritized) != 0, get(var_deprioritized), get(var_prioritized)), 
+                                                           fifelse(!is.na(get(var_deprioritized)), get(var_deprioritized), get(var_prioritized))))]
+    NULL
+  }
+  
+  return(merged_wide_with_duplicates[, c(non_duplicated_cols, dupe_cols), with = F])
+  
 }
 
-fread_and_getCharCols = function(x) {
-  fread(x, colClasses = list(character = getCharCols(x)))
+give_descriptive_variable_names = function(data, variable_names) {
+  variable_names[, shortVarName := tolower(shortVarName)
+         ][, cleanDescriptiveVarName := gsub("[^[:alnum:]]", "", fullDescriptiveVarName)]
+  descriptive_variable_names_for_Data = data.table(shortVarName = tolower(names(data))
+                                                 )[variable_names, on = 'shortVarName', cleanDescriptiveVarName := i.cleanDescriptiveVarName
+                                                 ][!is.na(cleanDescriptiveVarName)]
+  setnames(data, 
+           descriptive_variable_names_for_Data[, shortVarName], 
+           descriptive_variable_names_for_Data[, cleanDescriptiveVarName])
 }
-
-na0 = function(x) ifelse(!is.na(x),x,0)

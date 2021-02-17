@@ -1,4 +1,5 @@
-input_data = c(mergedAndReadyData = 'foranalysis.csv')
+input_data = c(mergedAndReadyData = 'foranalysis.feather',
+               FREDData = 'Data/FRED Data (Inflation and Interest Rates).feather')
 
 
 #something might be wrong with this standard error clustering script
@@ -8,12 +9,13 @@ source('src/robust_summary.R')
 # library(plm)
 # library(multiwayvcov)
 # library(lmtest)
+# library(Hmisc)
 
 z_score = function(x, weights){
   (x - wtd.mean(x, weights = weights))/sqrt(wtd.var(x, weights = weights))
 }
 
-data = fread_and_getCharCols(input_data['mergedAndReadyData'])
+data = read_feather_dt(input_data['mergedAndReadyData'])
 
 data[, mwv := monopolywealth / MktVal]
 data[, mwtw := monopolywealth / totalwealth]
@@ -206,8 +208,8 @@ data[is.na(software_patents_rolling_5), software_patents_rolling_5 := 0]
 specifications = data.table(merge(ivs, dvs, allow.cartesian = T))
 setnames(specifications, c('iv', 'dv'))
 
-price_deflators = readRDS('Data/FRED Data (Inflation and Interest Rates).rds'
-                        )[, .(gdpdef_level, investmentPrice_level, calendaryear = year)]
+price_deflators = read_feather_dt(input_data['FREDData']
+                                )[, .(gdpdef_level, investmentPrice_level, calendaryear = year)]
 data[AssetsTotal < 0, AssetsTotal := 0]
 data[totalwealth < 0, totalwealth := 0]
 data[price_deflators, on = 'calendaryear', `:=`(gdp_def = i.GDPDEF, InvDef = i.InvDef)]

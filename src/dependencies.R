@@ -1,18 +1,24 @@
 library(data.table)
 library(ggplot2)
-library(fredr)
-library(RPostgres)
+library(feather)
+library(stringr)
+import::from(lubridate, 'fast_strptime', 'mdy')
+
 library(foreach)
 library(iterators)
 library(snow)
 library(doSNOW)
-library(Hmisc, quietly = T, warn.conflicts = F)
-library(stringr)
+
+library(fredr)
+library(RPostgres)
+
 library(openxlsx)
 library(readxl)
 library(haven)
-library(gtools)
-import::from(lubridate, 'fast_strptime', 'mdy')
+import::from(readr, 'read_fwf', 'fwf_empty')
+
+# library(gtools)
+# library(Hmisc, quietly = T, warn.conflicts = F)
 
 # the python scripts depend on casadi and numpy
 # I should learn how to use reticulate, renv::use_python

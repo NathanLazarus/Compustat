@@ -1,8 +1,8 @@
-input_data = c(dtcutForSpreadsheets = 'IntermediateFiles/dtcut_for_spreadsheets.csv')
+input_data = c(dtcutForSpreadsheets = 'IntermediateFiles/dtcut_for_spreadsheets.feather')
 
 output_files = c(profitsTaxEstimates = 'SpreadsheetOutputs/profits_tax_estimates.xlsx')
 
-dtcut = fread_and_getCharCols(input_data['dtcutForSpreadsheets'])
+dtcut = read_feather_dt(input_data['dtcutForSpreadsheets'])
 
 implied_r = 0.04
 tax_rate = 0.5

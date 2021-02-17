@@ -1,8 +1,8 @@
-output_files = c(companyData = 'Data/Company Data (fixed identifying variables).rds', 
-                 fundamentalsData = 'Data/Annual Fundamentals (most variables, raw).rds', 
-                 KLDData = 'Data/KLD Data (Anticompetitive Practices).rds', 
-                 companyData = 'Data/Company Data (fixed identifying variables).rds', 
-                 compustatNames = 'Data/First and Last Year in Compustat.rds')
+output_files = c(companyData = 'Data/Company Data (fixed identifying variables).feather', 
+                 fundamentalsData = 'Data/Annual Fundamentals (most variables, raw).feather', 
+                 KLDData = 'Data/KLD Data (Anticompetitive Practices).feather', 
+                 CRSPCompustatLink = 'Data/CRSP Compustat Link (gvkey to permno and permco).feather', 
+                 compustatNames = 'Data/First and Last Year in Compustat.feather')
 
 
 login_info = fread('CompustatPassword.csv')
@@ -69,6 +69,13 @@ CRSPCompustatLink =
                )
   )
 
+CRSPsec =
+  data.table(
+    dbGetQuery(wrds, "select *
+                     from CRSP.SECHEAD"
+               )
+  )
+
 
 CompustatNames =
   data.table(
@@ -77,8 +84,8 @@ CompustatNames =
                )
   )
 
-saveRDS(data.table(CompustatCompany), output_files['companyData'])
-saveRDS(data.table(CompustatFundamentals), output_files['fundamentalsData'])
-saveRDS(data.table(KLDdata), output_files['KLDData'])
-saveRDS(data.table(CRSPCompustatLink), output_files['CRSPCompustatLink'])
-saveRDS(data.table(CompustatNames), output_files['compustatNames'])
+write_feather(CompustatCompany, output_files['companyData'])
+write_feather(CompustatFundamentals, output_files['fundamentalsData'])
+write_feather(KLDdata, output_files['KLDData'])
+write_feather(CRSPCompustatLink, output_files['CRSPCompustatLink'])
+write_feather(CompustatNames, output_files['compustatNames'])
