@@ -1,8 +1,22 @@
 rbind_and_fill = function(...) rbind(...,fill=T)
 
+
 read_feather_dt = function(file) data.table(read_feather(file))
 
+
 na0 = function(x) fifelse(!is.na(x), x, 0)
+
+roundDown = function(x, y) x - x %% y
+
+CJ.dt = function(X,Y) {
+  stopifnot(is.data.table(X),is.data.table(Y))
+  k = NULL
+  X = X[, c(k=1, .SD)]
+  setkey(X, k)
+  Y = Y[, c(k=1, .SD)]
+  setkey(Y, NULL)
+  X[Y, allow.cartesian=TRUE][, k := NULL][]
+}
 
 
 merge_and_reconcile = function(prioritized_data, deprioritized_data, join_cols, all_prioritized = T, all_deprioritized = T) {
@@ -27,6 +41,7 @@ merge_and_reconcile = function(prioritized_data, deprioritized_data, join_cols, 
   return(merged_wide_with_duplicates[, c(non_duplicated_cols, dupe_cols), with = F])
   
 }
+
 
 give_descriptive_variable_names = function(data, variable_names) {
   variable_names[, shortVarName := tolower(shortVarName)

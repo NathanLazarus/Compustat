@@ -3,9 +3,9 @@ dtafiles = grep(
   list.files('COMETS_data', recursive = T),
   value = T
   )
-clusters=makeCluster(7)
+clusters = makeCluster(7)
 registerDoSNOW(clusters)
-foreach(file = dtafiles, .packages = c('haven', 'data.table'))%dopar%{
+foreach(file = dtafiles, .packages = c('haven', 'data.table')) %dopar% {
   data = data.table(read_dta(paste0('COMETS_data/',file)))
   saveRDS(data, gsub('\\.dta','\\.rds',paste0('COMETS_data/',file)))
   NULL

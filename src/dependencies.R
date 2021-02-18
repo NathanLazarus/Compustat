@@ -1,6 +1,5 @@
 library(data.table)
 library(ggplot2)
-library(feather)
 library(stringr)
 import::from(lubridate, 'fast_strptime', 'mdy')
 
@@ -12,6 +11,7 @@ library(doSNOW)
 library(fredr)
 library(RPostgres)
 
+library(feather)
 library(openxlsx)
 library(readxl)
 library(haven)

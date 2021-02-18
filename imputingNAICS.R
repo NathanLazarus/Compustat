@@ -8,6 +8,8 @@ input_data = c(dtcut = 'IntermediateFiles/dtcut.feather',
 output_files = c(withThreeDigit = 'IntermediateFiles/withThreeDigit.feather', 
                  withSixDigit = 'IntermediateFiles/withSixDigit.feather')
 
+#believe your own ratios when it comes to the defunct NAICS firms
+
 dtcut = read_feather_dt(input_data['dtcut'])
 
 
@@ -79,6 +81,7 @@ dt_for_crosswalk = dtcut[!is.na(SIC) & !is.na(NAICS)]
 dt_for_crosswalk = dt_for_crosswalk[
   dt_for_crosswalk[, .(ind = .I[which.min(calendaryear)]), .(GlobalCompanyKey, SIC)]$ind, 
   .(two_digit_sic, three_digit_sic, four_digit_sic, NAICS)]
+
 
 possibleSICvalues = na.omit(unique(c(dtcut$two_digit_sic, dtcut$three_digit_sic, dtcut$four_digit_sic)))
 

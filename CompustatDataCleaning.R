@@ -25,6 +25,9 @@ CompustatVariableNames = fread(input_data['CompustatVariableNames'])
 give_descriptive_variable_names(data = fundamentalsData, variable_names = CompustatVariableNames)
 give_descriptive_variable_names(data = companyData, variable_names = CompustatVariableNames)
 
+setnames(fundamentalsData,
+         c('NorthAmericaIndustrialClassificationSystemHistorical', 'StandardIndustrialClassificationHistorical'),
+         c('NAICSHistorical', 'SICHistorical'))
 
 fundamentalsData[companyData, on = 'GlobalCompanyKey', 
    `:=`(currentSIC = i.StandardIndustryClassificationCode, 
