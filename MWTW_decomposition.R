@@ -236,19 +236,19 @@ over_time_decomposition_DLE = foreach(yr = 1986:2019, .combine = rbind_and_fill)
   firms_stay_the_same[, industry_share_of_economy_new := sum(firm_sales_new * three_digit_ratio_old)/sum(firms_stay_the_same[, firm_sales_new * three_digit_ratio_old]), my_three_digit_NAICS]
   firms_stay_the_same[, industry_share_of_economy_new_after_industry_entry_exit := sum(firm_sales_new * three_digit_ratio_new)/sum(firms_stay_the_same[, firm_sales_new * three_digit_ratio_new]), my_three_digit_NAICS]
   
-  initial = firms_stay_the_same[, wtd.mean(DLE_markup_old, firm_share_of_industry_old * industry_share_of_economy_old)]
-  change_firm_shares_of_industries = firms_stay_the_same[, wtd.mean(DLE_markup_old, firm_share_of_industry_new * industry_share_of_economy_old)]
-  change_industry_shares_of_economy = firms_stay_the_same[, wtd.mean(DLE_markup_old, firm_share_of_industry_old * industry_share_of_economy_new)]
-  change_both_shares_full_reallocation = firms_stay_the_same[, wtd.mean(DLE_markup_old, firm_share_of_industry_new * industry_share_of_economy_new)]
-  full_reallocation_and_industry_entry_exit = firms_stay_the_same[, wtd.mean(DLE_markup_old, firm_share_of_industry_new_after_industry_entry_exit * industry_share_of_economy_new_after_industry_entry_exit)]
-  change_mw = firms_stay_the_same[, wtd.mean(DLE_markup_new, firm_share_of_industry_old * industry_share_of_economy_old)]
-  final = firms_stay_the_same[, wtd.mean(DLE_markup_new, firm_share_of_industry_new_after_industry_entry_exit * industry_share_of_economy_new_after_industry_entry_exit)]
+  initial = firms_stay_the_same[, Hmisc::wtd.mean(DLE_markup_old, firm_share_of_industry_old * industry_share_of_economy_old)]
+  change_firm_shares_of_industries = firms_stay_the_same[, Hmisc::wtd.mean(DLE_markup_old, firm_share_of_industry_new * industry_share_of_economy_old)]
+  change_industry_shares_of_economy = firms_stay_the_same[, Hmisc::wtd.mean(DLE_markup_old, firm_share_of_industry_old * industry_share_of_economy_new)]
+  change_both_shares_full_reallocation = firms_stay_the_same[, Hmisc::wtd.mean(DLE_markup_old, firm_share_of_industry_new * industry_share_of_economy_new)]
+  full_reallocation_and_industry_entry_exit = firms_stay_the_same[, Hmisc::wtd.mean(DLE_markup_old, firm_share_of_industry_new_after_industry_entry_exit * industry_share_of_economy_new_after_industry_entry_exit)]
+  change_mw = firms_stay_the_same[, Hmisc::wtd.mean(DLE_markup_new, firm_share_of_industry_old * industry_share_of_economy_old)]
+  final = firms_stay_the_same[, Hmisc::wtd.mean(DLE_markup_new, firm_share_of_industry_new_after_industry_entry_exit * industry_share_of_economy_new_after_industry_entry_exit)]
   
   hm = copy(firms)
   hm[DLE_markup > 20, DLE_markup := 20]
   hm[DLE_markup < -1, DLE_markup := -1]
-  actual_mw_old = hm[calendaryear == yr - 1, wtd.mean(DLE_markup, size)]
-  actual_mw_new = hm[calendaryear == yr, wtd.mean(DLE_markup, size)]
+  actual_mw_old = hm[calendaryear == yr - 1, Hmisc::wtd.mean(DLE_markup, size)]
+  actual_mw_new = hm[calendaryear == yr, Hmisc::wtd.mean(DLE_markup, size)]
   
   data.table(year = yr, initial = initial, change_mw = change_mw, change_both_shares_full_reallocation = change_both_shares_full_reallocation, 
              linear =  change_mw + full_reallocation_and_industry_entry_exit - initial, final = final, 

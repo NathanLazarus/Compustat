@@ -1,8 +1,9 @@
 dtcut[, AssetsOther := AssetsOther - na0(DeferredCharges) - na0(PrepaidExpenses)]
 dtcut[, intangibleratio := IntangibleAssetsTotal/AssetsTotal]
+dtcut[, intangibleratio := pmin(pmax(intangibleratio, 0), 1)]
 setkey(dtcut, GlobalCompanyKey, calendaryear)
 
-# dtcut[, intangiblesadded:= +is.na(IntangibleAssetsTotal)]
+dtcut[, intangiblesadded := +is.na(IntangibleAssetsTotal)]
 dtcut_no_NA_intangibles = dtcut[!is.na(IntangibleAssetsTotal)]
 setkey(dtcut_no_NA_intangibles, GlobalCompanyKey, calendaryear)
 dtcut[, intangibleratio := dtcut_no_NA_intangibles[dtcut, intangibleratio, roll = 'nearest']

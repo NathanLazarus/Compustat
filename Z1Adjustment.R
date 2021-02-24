@@ -1,4 +1,4 @@
-input_data = c(dtcut = 'IntermediateFiles/dtcut.feather', 
+input_data = c(dtcut = 'IntermediateFiles/With Stochastic Crosswalk for Defunct NAICS Codes.feather', 
                Z1CurrentAndHistoricalPrices = 'Data/Z1 Assets at Current and Historical Prices.csv')
 
 output_files = c(dtcutForSpreadsheets = 'IntermediateFiles/dtcut_for_spreadsheets.feather')
@@ -14,8 +14,97 @@ python_output_files =
 python_scripts = c(realEstateEquipmentWeights = 'real_estate_equipment_weights.py', 
                    GetOptimalZ1Weights = 'GetOptimalZ1Weights.py')
 
-dtcut = read_feather_dt(input_data['dtcut'])
+with_stochastic_crosswalk = read_feather_dt(input_data['dtcut'])
 Z1 = fread(input_data['Z1CurrentAndHistoricalPrices'])
+
+with_stochastic_crosswalk = with_stochastic_crosswalk[!is.na(SIC)]
+# with_stochastic_crosswalk[is.na(NAICS), is_a_utility := roundDown(SIC, 100) == 4900]
+# with_stochastic_crosswalk[!is.na(NAICS), is_a_utility := roundDown(SIC, 100) == 4900 | roundDown(NAICS, 10000) == 221000]
+with_stochastic_crosswalk[, is_a_utility := roundDown(SIC, 100) == 4900]
+with_stochastic_crosswalk[with_stochastic_crosswalk[is_a_utility == T], on = c('GlobalCompanyKey', 'DataYearFiscal'), is_a_utility := i.is_a_utility]
+
+# dtcut = unique(with_stochastic_crosswalk, by = c('GlobalCompanyKey', 'DataYearFiscal'))
+dtcut = with_stochastic_crosswalk[, is_most_likely_NAICS := frank(-ratio, ties.method =  'random'), .(GlobalCompanyKey, DataYearFiscal)
+                                ][is_most_likely_NAICS == 1]
+
+
+
+
+max_year = 2019
+
+# Make it so there is one unique observation for every calendar year ----------------------
+#
+#firms choose the date at which their fiscal year ends, and they file their annual report, and unfortunately they sometimes change these dates
+#two things can happen: they can change from reporting in, say, November to reporting in, say, March, in which case there's a missing calendar year
+#(November 2006 for FY 2006 and March 2008 for FY 2007 lead to no observations in 2007).
+#Or, if they go from March to November, they have two reports in one calendar year
+dtcut[, haspreviousfiscalyear := (DataYearFiscal - 1) %in% DataYearFiscal, GlobalCompanyKey]
+dtcut[, hascalendaryear := DataYearFiscal %in% calendaryear, GlobalCompanyKey]
+dtcut[, missing := haspreviousfiscalyear & !hascalendaryear]
+missings = dtcut[missing == T]
+missings[, calendaryear := DataYearFiscal]
+dtcut = rbind(dtcut, missings)
+
+setkey(dtcut, GlobalCompanyKey, calendaryear)
+dtcut[, n_obs_calendaryear := .N, .(calendaryear, GlobalCompanyKey)]
+dtcut[n_obs_calendaryear > 1, `:=`(first_obs = datadate == min(datadate),
+                                   last_obs = datadate == max(datadate)), .(GlobalCompanyKey, calendaryear)]
+
+most_recent_available_data_for_companies_that_appear_twice_in_a_calendar_year =
+   merge_and_reconcile(dtcut[last_obs == T], dtcut[first_obs == T],
+                    join_cols = c('GlobalCompanyKey', 'calendaryear'))
+# it's possible this could create a weird balance sheet, like if sales in December are 5 and COGS are NA,
+# and sales in March are 2000 and COGS are 1500, then we'd see sales = 5 and COGS = 1500 after merge_and_reconcile
+
+dtcut = rbind(dtcut[n_obs_calendaryear == 1],
+              most_recent_available_data_for_companies_that_appear_twice_in_a_calendar_year)
+
+dtcut[, c('haspreviousfiscalyear', 'hascalendaryear', 'missing', 'n_obs_calendaryear') := NULL]
+
+dtcut = dtcut[calendaryear <= max_year]
+
+
+
+dtcut[, AssetsOther := AssetsOther - na0(DeferredCharges) - na0(PrepaidExpenses)]
+dtcut[, intangibleratio := IntangibleAssetsTotal/AssetsTotal]
+dtcut[, intangibleratio := pmin(pmax(intangibleratio, 0), 1)]
+setkey(dtcut, GlobalCompanyKey, calendaryear)
+
+dtcut[, intangiblesadded := +is.na(IntangibleAssetsTotal)]
+dtcut_no_NA_intangibles = dtcut[!is.na(IntangibleAssetsTotal)]
+setkey(dtcut_no_NA_intangibles, GlobalCompanyKey, calendaryear)
+dtcut[, intangibleratio := dtcut_no_NA_intangibles[dtcut, intangibleratio, roll = 'nearest']
+    ][is.na(IntangibleAssetsTotal), `:=`(IntangibleAssetsTotal = pmin(intangibleratio*AssetsTotal, na0(Goodwill), pmax(na0(AssetsOther), 0)), 
+                                        AssetsOther = na0(AssetsOther) - na0(pmin(intangibleratio*AssetsTotal, na0(Goodwill), pmax(na0(AssetsOther), 0))))]
+
+dtcut[, twodigitsic := as.character(floor(SIC/100))]
+
+intangiblemod = lm(intangibleratio~factor(calendaryear)+twodigitsic, data = dtcut)
+dtcut[, predictedintangibleratio := pmax(predict(intangiblemod, dtcut), 0)
+    ][is.na(IntangibleAssetsTotal), `:=`(IntangibleAssetsTotal = pmin(predictedintangibleratio*AssetsTotal, na0(Goodwill), pmax(na0(AssetsOther), 0)), 
+                                        AssetsOther = na0(AssetsOther) - na0(pmin(predictedintangibleratio*AssetsTotal, na0(Goodwill), pmax(na0(AssetsOther), 0))))]
+
+
+
+# Calculate Market Value ------------------
+
+dtcut[conm == 'DELHAIZE AMERICA INC' & calendaryear == 2001 & CommonSharesOutstanding == 91125.785, 
+      CommonSharesOutstanding := dtcut[conm == 'DELHAIZE AMERICA INC' & calendaryear == 2000]$CommonSharesOutstanding]
+
+dtcut[, MktVal := MarketValueTotalFiscal]
+dtcut[is.na(MktVal), MktVal := PriceCloseAnnualFiscal * CommonSharesOutstanding]
+dtcut[is.na(MktVal), MktVal := PriceCloseAnnualCalendar * CommonSharesOutstanding]
+dtcut[is.na(PreferredPreferenceStockCapitalTotal) & !is.na(PreferredPreferenceStockRedeemable), 
+      PreferredPreferenceStockCapitalTotal := PreferredPreferenceStockRedeemable]
+
+dtcut[, preferred := pmax(PreferredPreferenceStockCapitalTotal, PreferredStockLiquidatingValue, PreferredStockRedemptionValue, PreferredStockConvertible, na.rm = T)]
+dtcut[!is.na(preferred), MktVal := MktVal + preferred]
+dtcut = dtcut[MktVal != 0 | is.na(MktVal)] #drop about 100 firms with 0 common shares outstanding, mostly firms in the process of dissolving
+
+
+
+
+
 
 Z1[, calendaryear := as.integer(substring(Year, 1, 4))][, Year := NULL]
 setnames(Z1, gsub("[^[:alnum:]]", "", names(Z1)))
@@ -41,10 +130,10 @@ dtcut[, financial := +(SIC >= 6000 & SIC < 6500)]
 PPEcategories = c('MachineryandEquipment', 'NaturalResources', 'Other', 'Buildings', 
                   'ConstructioninProgress', 'LandandImprovements', 'Leases')
 depreciationconstants = foreach(i = 1:length(PPEcategories), .combine = rbind) %do% {
-  depreciation = dtcut[!is.na(eval(parse(text = paste0('PropertyPlantandEquipment' , PPEcategories[i] , 'Net')))) &
-                         !is.na(eval(parse(text = paste0('PropertyPlantandEquipment' , PPEcategories[i] , 'atCost')))) , 
-                       sum(eval(parse(text = paste0('PropertyPlantandEquipment' , PPEcategories[i] , 'Net')))) /
-                         sum(eval(parse(text = paste0('PropertyPlantandEquipment' , PPEcategories[i] , 'atCost'))))]
+  depreciation = dtcut[!is.na(eval(parse(text = paste0('PropertyPlantandEquipment', PPEcategories[i], 'Net')))) &
+                         !is.na(eval(parse(text = paste0('PropertyPlantandEquipment', PPEcategories[i], 'atCost')))), 
+                       sum(eval(parse(text = paste0('PropertyPlantandEquipment', PPEcategories[i], 'Net')))) /
+                         sum(eval(parse(text = paste0('PropertyPlantandEquipment', PPEcategories[i], 'atCost'))))]
   #this is the important side effect
   dtcut[, PPEcategories[i] := ifelse(!is.na(eval(parse(text = paste0('PropertyPlantandEquipment', PPEcategories[i], 'Net')))), 
                                   eval(parse(text = paste0('PropertyPlantandEquipment', PPEcategories[i], 'Net'))), 
@@ -78,7 +167,7 @@ dtcut[PPEuncategorized < 0, realestate_share := na0(realestate)/(na0(realestate)
 
 #can we guess at a firm's equipment to real estate ratio using sectoral data?
 setkey(dtcut, calendaryear, twodigitsic)
-industry_aggregate_real_estate_share = dtcut[, .(sector_re_share = (sum(realestate, na.rm = T))/(sum(realestate, equipment, na.rm = T))), twodigitsic]
+industry_aggregate_real_estate_share = dtcut[, .(sector_re_share = (sum(realestate, na.rm = T)) / (sum(realestate, equipment, na.rm = T))), twodigitsic]
 industry_year_PPE_aggregates = dtcut[, .(realestate_categorized = sum(realestate, na.rm = T), 
                                         equipment_categorized = sum(equipment, na.rm = T), 
                                         uncategorized = sum(PPEuncategorized, na.rm = T), 
@@ -107,7 +196,7 @@ dtcut[IntangibleAssetsTotal == 0 & Goodwill > 0, `:=`(IntangibleAssetsTotal = Go
 dtcut[, goodwillpct := Goodwill/IntangibleAssetsTotal]
 # dtcut[, sum(Goodwill, na.rm = T)/sum(IntangibleAssetsTotal * !is.na(Goodwill), na.rm = T), .(calendaryear, twodigitsic)]
 dtcut[, stryear_1988_or_later := factor(pmax(calendaryear, 1988))]
-dtcut[, twodigitsic_after_1988 := ifelse(twodigitsic == '9', '65', ifelse(twodigitsic == '84', '79', twodigitsic))]
+dtcut[, twodigitsic_after_1988 := ifelse(twodigitsic == '90', '65', ifelse(twodigitsic == '84', '79', twodigitsic))]
 goodwillmod = lm(goodwillpct~stryear_1988_or_later + twodigitsic_after_1988, data = dtcut)
 dtcut[, goodwill_pct_year_sector := pmax(predict(goodwillmod, dtcut), 0)]
 
@@ -179,10 +268,10 @@ dtcut[, c('ca_inventories_pct_firm', 'ca_receivables_pct_firm', 'ca_cash_pct_fir
         ca_merge[, .(ca_inventories_pct, ca_receivables_pct, ca_cash_pct, ca_other_pct, ca_merge_success)]]
 dtcut[, total_current_assets_year_sector := sum(InventoriesTotal, ReceivablesTotal, CashandShortTermInvestments, CurrentAssetsOtherTotal, na.rm = T), .(calendaryear, twodigitsic)]
 stopifnot(nrow(dtcut[total_current_assets_year_sector <= 0]) == 0)
-dtcut[, ca_inventories_pct_year_sector := sum(InventoriesTotal, na.rm = T)/total_current_assets_year_sector, .(calendaryear, twodigitsic)
-    ][, ca_receivables_pct_year_sector := sum(ReceivablesTotal, na.rm = T)/total_current_assets_year_sector, .(calendaryear, twodigitsic)
-    ][, ca_cash_pct_year_sector := sum(CashandShortTermInvestments, na.rm = T)/total_current_assets_year_sector, .(calendaryear, twodigitsic)
-    ][, ca_other_pct_year_sector := sum(CurrentAssetsOtherTotal, na.rm = T)/total_current_assets_year_sector, .(calendaryear, twodigitsic)]
+dtcut[, ca_inventories_pct_year_sector := sum(InventoriesTotal, na.rm = T) / total_current_assets_year_sector, .(calendaryear, twodigitsic)
+    ][, ca_receivables_pct_year_sector := sum(ReceivablesTotal, na.rm = T) / total_current_assets_year_sector, .(calendaryear, twodigitsic)
+    ][, ca_cash_pct_year_sector := sum(CashandShortTermInvestments, na.rm = T) / total_current_assets_year_sector, .(calendaryear, twodigitsic)
+    ][, ca_other_pct_year_sector := sum(CurrentAssetsOtherTotal, na.rm = T) / total_current_assets_year_sector, .(calendaryear, twodigitsic)]
 
 dtcut[ca_merge_success == 1, c('ca_other_pct', 'ca_inventories_pct', 'ca_receivables_pct', 'ca_cash_pct') := 
         .(ca_other_pct_firm, ca_inventories_pct_firm, ca_receivables_pct_firm, ca_cash_pct_firm)]
@@ -216,7 +305,7 @@ eval(parse(text = paste0('dtcut[, assets_accounted_for := sum(', paste0(assetcla
 
 dtcut[, residual := AssetsTotal - assets_accounted_for]
 
-dtcut[, asset_categories_add_up := abs(residual/AssetsTotal) < 0.01]
+dtcut[, asset_categories_add_up := abs(residual / AssetsTotal) < 0.01]
 
 dtcut[, total_categorized_assets := eval(parse(text = paste0('na0(', assetclasscols, ')', collapse = '+')))]
 dtcut[, total_categorized_tangible_assets := eval(parse(text = paste0('na0(', tangible_assetclasscols, ')', collapse = '+')))]
@@ -231,17 +320,22 @@ throwaway = foreach(asset = assetclasscols) %do% {
 dtcut_asset_categories_add_up = dtcut[asset_categories_add_up == T]
 dtcut_asset_categories_add_up[, residual_merge_success := 1]
 setkey(dtcut_asset_categories_add_up, GlobalCompanyKey, calendaryear)
-residual_merge = dtcut_asset_categories_add_up[dtcut, , roll = 'nearest']
+setkey(dtcut, GlobalCompanyKey, calendaryear)
+residual_merge = dtcut_asset_categories_add_up[dtcut, roll = 'nearest']
+setkey(residual_merge, GlobalCompanyKey, calendaryear)
 dtcut[, residual_merge_success := residual_merge[, residual_merge_success]]
 
 dtcut[, total_categorized_assets_year_sector := eval(parse(text = paste0('sum(', paste(assetclasscols, collapse = ','), ', na.rm = T)'))), .(calendaryear, twodigitsic)]
 dtcut[, total_categorized_tangible_assets_year_sector := eval(parse(text = paste0('sum(', paste(tangible_assetclasscols, collapse = ','), ', na.rm = T)'))), .(calendaryear, twodigitsic)]
+
 stopifnot(nrow(dtcut[total_categorized_assets_year_sector <= 0]) == 0)
 stopifnot(nrow(dtcut[total_categorized_tangible_assets_year_sector <= 0]) == 0)
+dtcut[total_categorized_assets_year_sector <= 0, total_categorized_assets_year_sector := 0.1]
+dtcut[total_categorized_tangible_assets_year_sector <= 0, total_categorized_tangible_assets_year_sector := 0.1]
 
 throwaway = foreach(asset = assetclasscols) %do% {
   dtcut[, paste0('residual_', asset, '_pct_year_sector') := eval(parse(text = paste0('sum(', asset, ', na.rm = T)/total_categorized_assets_year_sector'))), .(calendaryear, twodigitsic)]
-  dtcut[, paste0('residual_', asset, '_pct_firm') := residual_merge[, paste0('residual_', asset, '_pct_firm'), with = F]]
+  dtcut[, paste0('residual_', asset, '_pct_firm') := residual_merge[, paste0('residual_', asset, '_pct_firm'), with = F][[1]]]
   dtcut[residual_merge_success == 1, paste0('residual_', asset, '_pct') := eval(parse(text = paste0('residual_', asset, '_pct_firm')))]
   dtcut[is.na(residual_merge_success), paste0('residual_', asset, '_pct') := eval(parse(text = paste0('residual_', asset, '_pct_year_sector')))]
   
@@ -261,7 +355,7 @@ eval(parse(text = paste0('dtcut[, pseudoassets_check := sum(', paste0(assetclass
 
 dtcut[, residual_check := AssetsTotal - pseudoassets_check]
 
-sums_by_year = dtcut[, lapply(.SD, sum, na.rm = T), .(financial, calendaryear), .SDcols = 
+sums_by_year = dtcut[, lapply(.SD, sum, na.rm = T), .(financial, calendaryear), .SDcols =
                        c(assetclasscols, 'AssetsTotal')]
 
 setkey(sums_by_year, calendaryear, financial)
@@ -318,6 +412,7 @@ dtcut[, IntangibleAssetsTotal := sum(IntellectualProperty, Goodwill, na.rm = T),
 
 # dtcut[, liabilitiesadded := +is.na(LiabilitiesTotal)]
 dtcut[, liabilityratio := LiabilitiesTotal/AssetsTotal]
+dtcut[, liabilityratio := pmin(pmax(liabilityratio, 0), 10)]
 dtcut_no_NA_liabilities = dtcut[!is.na(LiabilitiesTotal)]
 setkey(dtcut, GlobalCompanyKey, calendaryear)
 setkey(dtcut_no_NA_liabilities, GlobalCompanyKey, calendaryear)

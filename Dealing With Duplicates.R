@@ -1,4 +1,5 @@
 max_year = 2019
+#check for ETFs
 
 # Make it so there is one unique observation for every calendar year ----------------------
 #

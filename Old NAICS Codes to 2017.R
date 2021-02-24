@@ -291,3 +291,12 @@ with_stochastic_crosswalk_for_defunct_NAICS = foverlaps(dtcut, defunct_NAICS_to_
 with_stochastic_crosswalk_for_defunct_NAICS[, splits := .N, .(GlobalCompanyKey, DataYearFiscal)]
 setnames(with_stochastic_crosswalk_for_defunct_NAICS, c('NAICS_end', 'NAICS'), c('NAICS', 'NAICS_before_updating'))
 with_stochastic_crosswalk_for_defunct_NAICS[is.na(NAICS), NAICS := NAICS_before_updating]
+
+# You look in the wrong place here:
+# with_stochastic_crosswalk_for_defunct_NAICS[calendaryear == 2019 & NAICS_before_updating == 110000, .(conm, NAICS, NAICS_before_updating, ratio)]
+# This is based off of all the firms with two digit NAICS == 110000 in 2015 and 2016, on the assumption that their NAICS code was no longer 110000 come 2017
+# But if it isn't in your list for 2012 either, then you want to look more broadly for what industries firms with two digit NAICS = 11 are in
+# The other failing is that you're ignoring firms that were, say in 111000, which should lead you to weight towards 111 three digit codes.
+
+write_feather(with_stochastic_crosswalk_for_defunct_NAICS, 'IntermediateFiles/With Stochastic Crosswalk for Defunct NAICS Codes.feather')
+# with_stochastic_crosswalk_for_defunct_NAICS[!is.na(NAICS), n_digit := nchar(str_match(NAICS, '0*$'))]
