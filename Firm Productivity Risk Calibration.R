@@ -85,36 +85,36 @@ dt_with_shocks = dt[, n_real_shocks := sum(!is.na(shock)), GlobalCompanyKey
                   ][, marketShareOverWholePeriod := sum(na0(marketShare))/totalMarketShare, GlobalCompanyKey]
 
 
-clusters = makeCluster(7)
-registerDoSNOW(clusters)
-superlong = foreach(LOOCVyear = 2000:2006, .combine = rbind) %dopar% {
-eek = cov(dcast(dt_with_shocks[calendaryear != LOOCVyear,
-                               .(calendaryear, GlobalCompanyKey, shock)],
-                calendaryear ~ GlobalCompanyKey,
-                value.var = 'shock'
-               )[, -'calendaryear'],
-          use = 'pairwise.complete.obs')
-
-# mean_covariance = mean(c(eek), na.rm = TRUE)
-# eek[is.na(eek)] = mean_covariance
-
-# hm = data.table(GlobalCompanyKey = row.names(eek), eek)
-
-loong = data.table(covariance = c(eek), x = rep(colnames(eek), each = nrow(eek)), y = rep(rownames(eek), times = ncol(eek)))
-
-#DCAST dt_with_shocks HERE so you have 1 col/year
-#also you might need as.integer(Globalcompanykey)
-loong[dt_with_shocks[calendaryear == LOOCVyear],
-      on = c(y = 'GlobalCompanyKey'),
-      shock_in_given_year_for_firm_y := i.shock]
-loong[dt_with_shocks[calendaryear == LOOCVyear],
-      on = c(x = 'GlobalCompanyKey'),
-      shock_in_given_year_for_firm_x := i.shock]
-loong[, year := LOOCVyear]
-}
-stopCluster(clusters)
-
-summary(lm(shock_74_y ~ shock_74_x * covariance, data = loong[x != y]))
+# clusters = makeCluster(7)
+# registerDoSNOW(clusters)
+# superlong = foreach(LOOCVyear = 2000:2006, .combine = rbind) %dopar% {
+# eek = cov(dcast(dt_with_shocks[calendaryear != LOOCVyear,
+#                                .(calendaryear, GlobalCompanyKey, shock)],
+#                 calendaryear ~ GlobalCompanyKey,
+#                 value.var = 'shock'
+#                )[, -'calendaryear'],
+#           use = 'pairwise.complete.obs')
+# 
+# # mean_covariance = mean(c(eek), na.rm = TRUE)
+# # eek[is.na(eek)] = mean_covariance
+# 
+# # hm = data.table(GlobalCompanyKey = row.names(eek), eek)
+# 
+# loong = data.table(covariance = c(eek), x = rep(colnames(eek), each = nrow(eek)), y = rep(rownames(eek), times = ncol(eek)))
+# 
+# #DCAST dt_with_shocks HERE so you have 1 col/year
+# #also you might need as.integer(Globalcompanykey)
+# loong[dt_with_shocks[calendaryear == LOOCVyear],
+#       on = c(y = 'GlobalCompanyKey'),
+#       shock_in_given_year_for_firm_y := i.shock]
+# loong[dt_with_shocks[calendaryear == LOOCVyear],
+#       on = c(x = 'GlobalCompanyKey'),
+#       shock_in_given_year_for_firm_x := i.shock]
+# loong[, year := LOOCVyear]
+# }
+# stopCluster(clusters)
+# 
+# summary(lm(shock_74_y ~ shock_74_x * covariance, data = loong[x != y]))
 
 
 

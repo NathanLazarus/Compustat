@@ -8,14 +8,20 @@ na0 = function(x) fifelse(!is.na(x), x, 0)
 
 roundDown = function(x, y) x - x %% y
 
+`%inIndustryCode%` = function(narrow_code, broad_code) {
+  narrow_code == broad_code | roundDown(narrow_code, 10) == broad_code |
+  roundDown(narrow_code, 100) == broad_code | roundDown(narrow_code, 1000) == broad_code |
+  roundDown(narrow_code, 10000) == broad_code
+}
+
 CJ.dt = function(X,Y) {
   stopifnot(is.data.table(X),is.data.table(Y))
   k = NULL
-  X = X[, c(k=1, .SD)]
+  X = X[, c(k = 1, .SD)]
   setkey(X, k)
-  Y = Y[, c(k=1, .SD)]
+  Y = Y[, c(k = 1, .SD)]
   setkey(Y, NULL)
-  X[Y, allow.cartesian=TRUE][, k := NULL][]
+  X[Y, allow.cartesian = TRUE][, k := NULL][]
 }
 
 
